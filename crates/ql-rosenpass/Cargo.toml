@@ -1,0 +1,15 @@
+[package]
+name = "ql-rosenpass"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.22"
+ql-core = { path = "../ql-core" }
+tokio = { version = "1.44", features = ["macros", "process", "rt", "sync", "time", "io-util"] }
+tracing = "0.1"

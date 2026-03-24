@@ -1,0 +1,24 @@
+[package]
+name = "ql-signal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+metrics = []
+
+[dependencies]
+axum = "0.8"
+ql-core = { path = "../ql-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
+serde_json = "1.0"
+sha2 = "0.10"
+tokio = { version = "1.44", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tracing = "0.1"
+uuid = { version = "1.8", features = ["serde", "v4"] }

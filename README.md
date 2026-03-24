@@ -16,7 +16,7 @@ The project is designed around a zero-vendor-infrastructure model. QuantumLink d
 
 ## Current Status
 
-This repository is under active scaffold and implementation from the project specification in [product.md](/Users/rickglenn/Desktop/QuantumLink%20PQC%20VPN/quantumlink/product.md).
+This repository is under active scaffold and implementation from the project specification in [product.md](product.md).
 
 Implemented so far:
 
@@ -115,7 +115,7 @@ cargo test -p ql-signal
 
 ## Repository Tracking
 
-Progress updates are logged in [changelog.md](/Users/rickglenn/Desktop/QuantumLink%20PQC%20VPN/quantumlink/changelog.md).
+Progress updates are logged in [changelog.md](changelog.md).
 
 ## Roadmap Snapshot
 

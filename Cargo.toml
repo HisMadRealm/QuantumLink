@@ -2,6 +2,8 @@
 members = [
     "crates/ql-core",
     "crates/ql-crypto",
+    "crates/ql-macos-app",
+    "crates/ql-macos-runtime",
     "crates/ql-wireguard",
     "crates/ql-rosenpass",
     "crates/ql-firewall",
@@ -21,6 +23,5 @@ edition = "2021"
 license = "Apache-2.0"
 version = "0.1.0"
 rust-version = "1.82"
-
 [workspace.dependencies]
 oqs = { version = "0.10.1", default-features = false, features = ["ml_dsa", "ml_kem", "vendored"] }

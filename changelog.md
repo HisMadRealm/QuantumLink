@@ -120,3 +120,284 @@ Where we are:
 What we are doing next:
 - Re-run a full workspace build after the latest service-crate additions.
 - Continue into the next implementation steps, starting with the relay path and then pairing and mesh-related crates.
+
+## 2026-03-25
+
+### Entry 1
+What we did:
+- Implemented `ql-relay` as a blind UDP relay with control-plane session registration, unchanged packet forwarding between registered peers, idle-session pruning, runtime stats, and crate tests that verify the relay forwards opaque ciphertext without interpreting it.
+- Implemented `ql-pair` with QR pairing URI encode/decode support, wormhole-style human-readable pairing codes, single-use setup key helpers, emoji verification derived from the pairing secret, and a real symmetric `SPAKE2` wrapper for mailbox-based pairing.
+- Implemented `ql-mesh` as the peer lifecycle and path-selection manager with relay-policy enforcement, direct-versus-relayed path selection, automatic direct-path upgrade behavior, live dashboard snapshots, and mesh state tests.
+- Re-ran `cargo build --workspace` after these additions and confirmed the workspace still compiles cleanly.
+
+Where we are:
+- Relay, pairing, and mesh state-management crates now exist as real implementations instead of placeholders.
+- The project is ready to move from mesh primitives into daemon and server orchestration.
+
+What we are doing next:
+- Implement `ql-daemon` and `ql-server` to orchestrate the crates that are now in place.
+- Then fill in the remaining user-facing and lifecycle pieces: GUI scaffolding, key-management flows, and the CI/documentation checklist.
+
+### Entry 2
+What we did:
+- Implemented `qld` in `ql-daemon` as a real orchestration binary with config loading, structured connection planning, CLI parsing for plan/status/connect flows, tunnel and Rosenpass lifecycle management, and JSON status output built on the shared `ql-core` IPC types.
+- Implemented `qls` in `ql-server` as a composed server daemon that starts `ql-signal` and `ql-relay` together, exposes structured runtime status, and supports plan/run modes for self-hosted deployment flows.
+- Added binary-level tests for `qld` and `qls` and revalidated the full workspace build after the new orchestration layer landed.
+- Fixed a shutdown race in `ql-signal` and `ql-relay` by making stop-path signaling bounded and abort-safe so composed server shutdown cannot hang indefinitely.
+
+Where we are:
+- The daemon and server orchestration layer now exists, so the core v0.1 service topology is no longer placeholder-only.
+- The remaining major gaps are the GUI surface, key-management flow completion, and the final CI/documentation pass.
+
+What we are doing next:
+- Implement the `ql-gui` scaffold against the daemon status and command surfaces now present in the workspace.
+- Then fill in key-management support and finish the remaining release-engineering and documentation checklist items from the original prompt.
+
+### Entry 3
+What we did:
+- Implemented `ql-gui` as a platform-neutral GUI state model with daemon command queueing, tray status projection, PQC transparency panel state, and mesh dashboard projection for a future GTK4 frontend.
+- Added shared key-management and certificate lifecycle models to `ql-core`, covering CA metadata, device certificates, revocation lists, local key-storage layout, and device-activity checks against revocation state.
+- Replaced CI and release workflow placeholders with workspace-level build and test automation and binary packaging steps for tagged releases.
+- Replaced the top-level architecture, threat model, cryptography, and pairing protocol placeholders with real project documentation based on the implemented workspace.
+- Re-ran `cargo test --workspace` and confirmed the full workspace test suite passes cleanly on the current machine.
+
+Where we are:
+- The workspace now has real implementations for the major core crates, daemon and server orchestration, GUI-facing state projection, shared identity models, and baseline automation/docs.
+- The remaining gaps are deeper certificate issuance workflows, fuller platform-native GUI implementations, and higher-assurance release hardening beyond the baseline workflows now in place.
+
+What we are doing next:
+- Push the current repository state if publication is desired.
+- Continue from baseline scaffolding into deeper certificate issuance, audit, and platform-specific UX work rather than placeholder replacement.
+
+### Entry 4
+What we did:
+- Extended `ql-crypto` with offline CA signing-key persistence helpers so hybrid Ed25519 plus ML-DSA-65 CA material can be exported, reloaded, and reused for later certificate operations.
+- Expanded `qld` with an `identity` command family covering offline CA initialization, certificate issuance, certificate verification, certificate renewal, and revocation-list updates, along with local JSON storage and audit-log persistence under the QuantumLink key layout.
+- Added daemon-level lifecycle tests that exercise CA creation, certificate issuance, verification, and revocation end to end against the persisted identity state.
+- Re-ran `cargo test --workspace` and confirmed the full workspace test suite still passes after the identity workflow additions.
+
+Where we are:
+- QuantumLink now has a working offline certificate lifecycle path instead of only shared certificate metadata types.
+- The remaining gaps are integrating these identity artifacts into broader peer-enrollment and policy-distribution flows, building the platform-native GUI on top of the current model crate, and hardening release packaging further.
+
+What we are doing next:
+- Wire the new identity workflow into higher-level enrollment and trust-distribution flows so pairing and mesh membership can consume issued certificates directly.
+- Continue into platform-specific UX and operational hardening rather than adding more placeholder surface area.
+
+## 2026-03-26
+
+### Entry 1
+What we did:
+- Promoted signed device certificates and enrollment bundles into `ql-pair` so the post-pairing trust artifact is a shared crate-level type instead of a `qld`-private JSON format.
+- Added enrollment-bundle verification helpers built on the hybrid CA signature path and revocation snapshot, with new crate tests covering valid and revoked bundle handling.
+- Extended `qld identity` with enrollment export and import commands so an issued certificate can be packaged with its trust anchor and then installed into a target device layout.
+- Extended `ql-mesh` with certificate-to-peer projection so mesh membership can derive peer identity directly from issued certificates.
+- Re-ran `cargo test -p ql-pair -p ql-mesh -p ql-daemon` and confirmed the touched crates pass after the integration.
+
+Where we are:
+- Pairing no longer stops at raw authenticated exchange primitives; the workspace now has an explicit trust-distribution bundle for the handoff into enrollment.
+- The remaining gap is automating delivery of that bundle through the actual signaling or LAN confirmation flow and then surfacing it in the GUI.
+
+What we are doing next:
+- Thread enrollment-bundle transport through the final pairing UX instead of requiring explicit CLI import or export.
+- Expose the new enrollment and certificate state through the platform UX and continue release hardening.
+
+### Entry 2
+What we did:
+- Added typed mailbox identities and mailbox payloads to `ql-pair`, including a concrete `EnrollmentBundle` transport payload and role-derived pairing identities for initiator and responder flows.
+- Extended `ql-signal` with a lightweight HTTP client and pairing-token mailbox authentication so the existing mailbox service can be used directly from daemon-side pairing flows.
+- Extended `qld` with mailbox-based pairing commands that create a mailbox and send or receive enrollment bundles over the signal path instead of requiring file-only handoff.
+- Added end-to-end tests in `ql-signal` and `qld` that start a live signal server and verify enrollment data can traverse the mailbox path and install successfully on the receiving side.
+
+Where we are:
+- The workspace now has an actual remote transport path from pairing rendezvous to certificate installation, not just offline bundle export and import helpers.
+- The remaining gap is UX orchestration: the operator still drives these steps through explicit low-level commands rather than one integrated pairing workflow.
+
+What we are doing next:
+- Collapse the SPAKE2 exchange, mailbox creation, enrollment-bundle send, and receive steps into a higher-level pairing workflow.
+- Then expose that flow in the GUI and continue hardening operational trust distribution.
+
+## 2026-03-27
+
+### Entry 1
+What we did:
+- Added `ql-macos-app` as the native macOS host-shell crate that owns the shared `ql-gui` model and the `ql-macos-runtime` adapter.
+- Implemented host-side planning helpers that translate shared GUI and daemon intent into native tunnel and firewall operations for the macOS runtime boundary.
+- Cleaned up the workspace wiring after the initial scaffold pass so the root workspace manifest remains workspace-only and the new crate owns its own package metadata.
+- Added a minimal `ql-macos-app` binary entrypoint so the host shell can be instantiated directly with stub or external-process adapter configuration.
+
+Where we are:
+- The macOS-first runtime stack now has a concrete host-side layer above the adapter instead of only runtime-side bridge contracts.
+- Shared GUI state, daemon event projection, and native operation planning now have a single application-side home for the macOS path.
+
+What we are doing next:
+- Validate the new app-shell crate alongside `ql-macos-runtime`, `ql-wireguard`, `ql-firewall`, and `ql-daemon`.
+- Keep building toward a signed native macOS product shell that can own the eventual platform UI and helper-process integration.
+
+### Entry 3
+What we did:
+- Added high-level `qld pair-initiate` and `qld pair-accept` workflows that compose mailbox creation, SPAKE2 exchange, verification-word derivation, enrollment-bundle transport, bundle import, and mailbox cleanup into one command per side.
+- Adjusted mailbox lifecycle behavior in `ql-signal` so a pairing mailbox can survive a multi-stage exchange instead of being deleted after the first empty roundtrip.
+- Added daemon tests that verify the full high-level pairing flow against a live signal server, with both sides deriving the same verification words and the responder successfully importing the issued certificate.
+
+Where we are:
+- The workspace now has a usable remote pairing workflow instead of only low-level transport primitives and manually chained daemon commands.
+- The main remaining gap is turning this daemon-oriented pairing workflow into a GUI-driven and less operator-heavy experience.
+
+What we are doing next:
+- Expose the high-level pairing flow through the GUI model and command surface.
+- Then continue with operational trust-distribution hardening and LAN confirmation integration.
+
+### Entry 4
+What we did:
+- Extended the shared `ql-core` daemon IPC surface with high-level pairing commands and events for initiator or responder workflows, verification words, and successful pairing completion.
+- Extended `ql-gui` with a dedicated pairing panel state model so the future desktop frontend can queue high-level pairing commands and present live pairing progress, mailbox details, verification words, and completion status.
+- Added GUI tests that verify the new command queueing and pairing-event projection behavior.
+
+Where we are:
+- The high-level pairing workflow now exists in the daemon, in the shared command and event contract, and in the GUI-facing state model.
+- The remaining gap is the actual platform frontend that binds these model states and commands to GTK controls, dialogs, and user confirmation screens.
+
+What we are doing next:
+- Bind the pairing workflow into the GUI frontend layer and tray interactions.
+- Then continue with LAN confirmation and operational trust-distribution hardening.
+
+### Entry 5
+What we did:
+- Repositioned the repository documentation around a macOS-first product strategy instead of a broad simultaneous platform push.
+- Updated the top-level README to describe the current shared-Rust-core plus native-macOS-product direction and to demote Linux runtime pieces to reference-backend status where appropriate.
+- Added a dedicated macOS pivot plan document that defines the narrowed first-release scope, immediate workstreams, and exit criteria for a macOS-only product milestone.
+
+Where we are:
+- QuantumLink now has an explicit product-direction document for a macOS-first release rather than only an implicit roadmap in the original specification.
+- The core shared logic remains reusable, but the next implementation focus is clear: macOS runtime integration, native frontend delivery, and release packaging.
+
+What we are doing next:
+- Define the macOS tunnel and leak-protection abstraction boundary that will replace the current Linux-only runtime assumptions.
+- Build the native macOS frontend around the existing shared GUI and daemon models, with Mode A as the release gate.
+
+### Entry 6
+What we did:
+- Added a dedicated macOS runtime architecture document that defines the platform boundary between shared Rust product logic and platform-specific tunnel plus leak-protection execution.
+- Introduced `PlatformTunnel` and `PlatformFirewall` facades so higher layers no longer need to depend directly on Linux-specific runtime type names.
+- Updated `qld` to depend on the new platform facades, keeping the current Linux implementation as the wired backend while preparing the codebase for a macOS backend.
+
+Where we are:
+- The macOS-first pivot now has both a documented runtime boundary and an initial code scaffold for platform selection.
+- The next engineering step is to add a macOS backend behind these facades instead of letting daemon orchestration continue to point directly at Linux runtime assumptions.
+
+What we are doing next:
+- Add the first macOS backend scaffold for tunnel and leak-protection responsibilities.
+- Then bind the native macOS app shell onto the shared GUI and daemon surfaces.
+
+### Entry 7
+What we did:
+- Added an explicit `macos-scaffold` backend path in both `ql-wireguard` and `ql-firewall` so Apple targets are no longer treated as a generic non-Linux stub.
+- Added macOS-specific `NotImplemented` messages that describe the missing native runtime pieces more precisely: tunnel lifecycle, endpoint updates, PSK injection, leak protection, and state reporting.
+- Updated the runtime architecture document to reflect the new backend-state split: `linux-reference`, `macos-scaffold`, and generic `stub`.
+
+Where we are:
+- QuantumLink now has an explicit macOS runtime placeholder path in code, which makes the next native implementation step concrete instead of implied.
+- The remaining gap is replacing the scaffold behavior with actual macOS tunnel and leak-protection execution, then binding it into a native app shell.
+
+What we are doing next:
+- Replace the `macos-scaffold` tunnel and firewall paths with the first native execution layer.
+- Then start the native macOS frontend shell on top of the existing shared GUI and daemon model.
+
+### Entry 8
+What we did:
+- Refined the macOS tunnel scaffold in `ql-wireguard` into a typed backend shape instead of a flat target-specific stub.
+- Added a backend descriptor surface so higher layers can inspect whether the active target backend is a product target and whether it already performs native execution.
+- Introduced explicit macOS tunnel backend metadata for driver choice, prepared-state lifecycle, and provider bundle identifier shape, with crate tests covering the new scaffold state on macOS.
+
+Where we are:
+- The macOS tunnel path now has a concrete backend structure ready for native execution work rather than only placeholder methods behind a target gate.
+- The next gap is implementing actual execution through the native macOS tunnel path and then bringing the firewall side to the same level of structural specificity.
+
+What we are doing next:
+- Replace the macOS tunnel backend placeholder methods with the first native execution integration.
+- Then refine the macOS firewall scaffold to match the tunnel side before binding the native app shell.
+
+### Entry 9
+What we did:
+- Refined the macOS firewall scaffold in `ql-firewall` into a typed backend shape instead of flat target-gated placeholder methods.
+- Added a firewall backend descriptor surface so higher layers can inspect whether the selected firewall backend is a product target and whether it already performs native execution.
+- Introduced explicit macOS firewall backend metadata for driver choice, prepared-state lifecycle, anchor naming, and leak-protection mode modeling, with crate tests covering the new scaffold state on macOS.
+
+Where we are:
+- The macOS runtime layer now has parallel typed backend shapes on both sides: tunnel and firewall.
+- The next gap is replacing those typed placeholder methods with real native execution and then binding them into a native app shell.
+
+What we are doing next:
+- Replace the macOS tunnel and firewall placeholder methods with the first native execution integration points.
+- Then start the native macOS frontend shell on top of the existing shared GUI and daemon model.
+
+### Entry 10
+What we did:
+- Added public macOS bridge-request models in `ql-wireguard` and `ql-firewall` so the Rust runtime can now emit structured native-integration requests instead of only hiding target-specific placeholder logic internally.
+- Added bridge-request accessors for the macOS tunnel and firewall paths, including tunnel session configuration and firewall operation payloads for kill switch, DNS-only protection, disable, and query actions.
+- Added crate tests on macOS that verify the emitted bridge requests carry the expected configuration and runtime metadata.
+
+Where we are:
+- The macOS runtime layer now exposes a real integration seam that a native app shell or extension can consume.
+- The next gap is executing those bridge requests through an actual native implementation rather than only generating them in Rust.
+
+What we are doing next:
+- Introduce the first native-execution adapter that consumes the macOS bridge requests.
+- Then begin the native macOS app shell that will own and drive those adapters.
+
+### Entry 11
+What we did:
+- Added macOS executor interfaces in `ql-wireguard` and `ql-firewall` so the runtime can now drive native execution through explicit adapter traits instead of stopping at bridge payload generation.
+- Added executor-backed helper methods on the platform facades, allowing higher-level code to activate tunnels, update endpoints, inject PSKs, query stats, and apply firewall operations through supplied macOS executors.
+- Added macOS tests with recording executors that verify the new execution hooks consume the expected bridge requests in the correct operation sequence.
+
+Where we are:
+- QuantumLink now has both halves of the Rust-side native integration seam: bridge payload models and executor interfaces.
+- The next gap is a concrete native adapter implementation and then the app shell that owns it.
+
+What we are doing next:
+- Add the first concrete macOS native adapter implementation target for the executor interfaces.
+- Then scaffold the native macOS app shell around those adapters and the shared GUI plus daemon model.
+
+### Entry 12
+What we did:
+- Added a new `ql-macos-runtime` crate as the first concrete macOS adapter target in the workspace.
+- Implemented a configurable adapter that consumes the macOS tunnel and firewall executor traits, serializes bridge requests, and can operate either in stub mode or through external helper processes.
+- Added tests that verify the adapter emits the expected serialized tunnel and firewall payloads and participates correctly in the new executor seam.
+
+Where we are:
+- QuantumLink now has a concrete adapter library target for the macOS runtime boundary, not just traits and request models.
+- The remaining gap is the native host itself: a real app or extension process that owns these adapters and backs the external execution mode.
+
+What we are doing next:
+- Scaffold the native macOS app shell that owns the adapter and shared GUI plus daemon surfaces.
+- Then define the first concrete native helper or extension entrypoint that can back the adapter's external process mode.
+
+### Entry 13
+What we did:
+- Added a new `ql-macos-app` crate as the first native macOS host-shell target in the workspace.
+- Implemented a host model that owns the shared `ql-gui` model and the `ql-macos-runtime` adapter, and can queue daemon commands, apply daemon events, and plan connect or disconnect host operations.
+- Added host-shell tests that verify GUI command flow, daemon-event projection, and macOS connect or disconnect operation planning against the stub adapter path.
+
+Where we are:
+- QuantumLink now has a concrete host-side layer above the adapter, not just runtime crates and bridge contracts.
+- The remaining gap is the actual native frontend and helper or extension process that would sit on top of this shell and back the adapter's external execution mode.
+
+What we are doing next:
+- Define the first helper or extension entrypoint contract that backs `ql-macos-runtime` external-process execution.
+- Then start the native frontend shell implementation on top of `ql-macos-app`.
+
+### Entry 14
+What we did:
+- Added a runnable `ql-macos-app` binary entrypoint so the host shell can be instantiated directly from the workspace instead of only through tests.
+- Wired environment-driven adapter selection into that bootstrap path, including stub mode and external-helper configuration placeholders for tunnel and firewall execution.
+- Re-ran focused validation for `ql-macos-app` and exercised the new bootstrap with `cargo run -p ql-macos-app -- status` to confirm the shared GUI state and pending-command flow come up correctly.
+
+Where we are:
+- The macOS-first stack now has both a reusable host-shell library and a concrete executable bootstrap path for local integration work.
+- The remaining gap is replacing stub execution with a real native helper or extension process and then binding the shell into a true macOS frontend.
+
+What we are doing next:
+- Add the first concrete helper or extension contract that backs `ql-macos-runtime` external-process mode.
+- Then replace the bootstrap CLI with a real native macOS UI host around the same shared shell.

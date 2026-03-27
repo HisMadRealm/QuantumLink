@@ -8,3 +8,19 @@ rust-version.workspace = true
 [[bin]]
 name = "qld"
 path = "src/main.rs"
+
+[dependencies]
+base64 = "0.22"
+ipnetwork = "0.21"
+ql-core = { path = "../ql-core" }
+ql-crypto = { path = "../ql-crypto" }
+ql-firewall = { path = "../ql-firewall" }
+ql-mesh = { path = "../ql-mesh" }
+ql-pair = { path = "../ql-pair" }
+ql-rosenpass = { path = "../ql-rosenpass" }
+ql-signal = { path = "../ql-signal" }
+ql-wireguard = { path = "../ql-wireguard" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.44", features = ["macros", "rt-multi-thread", "signal", "time"] }
+uuid = "1.8"

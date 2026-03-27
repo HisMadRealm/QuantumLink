@@ -7,11 +7,14 @@ QuantumLink is an open-source post-quantum VPN and mesh networking system built 
 
 The project is designed around a zero-vendor-infrastructure model. QuantumLink does not depend on a vendor-operated control plane. The intended trust model is that users operate their own server node and own their own keys.
 
+Current product direction: QuantumLink is pivoting to a macOS-first release strategy. The repository retains cross-platform and Linux-oriented components where they are useful for shared logic, backend prototyping, and future portability, but the first productized release target is a native macOS desktop client and self-hosted server workflow.
+
 ## Goals
 
 - Hybrid post-quantum security using X25519 + ML-KEM-768 and Ed25519 + ML-DSA-65
 - Rosenpass-managed PQ pre-shared key rotation on top of unmodified WireGuard
-- Linux-first daemon and service implementation for the v0.1 milestone
+- macOS-first desktop product with a native frontend and platform integration
+- Reuse of shared Rust core, crypto, pairing, signaling, and mesh logic across future platforms
 - Forward-compatible interfaces for mesh, pairing, relay, and GUI features planned for later milestones
 
 ## Current Status
@@ -23,23 +26,22 @@ Implemented so far:
 - Workspace scaffold and crate layout
 - Shared core config and IPC types in `ql-core`
 - Hybrid PQC primitives in `ql-crypto`
-- Linux-gated WireGuard management surface in `ql-wireguard`
+- Linux-gated WireGuard management surface in `ql-wireguard` as a reference backend
 - Rosenpass sidecar supervision in `ql-rosenpass`
-- Linux nftables firewall management surface in `ql-firewall`
+- Linux nftables firewall management surface in `ql-firewall` as a reference backend
 - v0.1 STUN API stubs in `ql-stun`
 - In-memory signaling service in `ql-signal`
+- Blind relay, pairing, mesh, daemon and server orchestration crates
+- Certificate lifecycle, enrollment bundles, and high-level pairing workflows
+- Platform-neutral GUI state model for a future native frontend
 
 Still in progress:
 
-- Relay service
-- Pairing protocol
-- Mesh manager
-- Client daemon
-- Server daemon
-- GUI
-- Key management
-- Full CI and release automation
-- Project documentation completion
+- Native macOS runtime integration for tunnel management and leak protection
+- Native macOS frontend implementation and packaging
+- STUN, LAN discovery, and additional mesh hardening for a polished desktop release
+- VPS deployment and operator workflow refinement
+- Release hardening, signing, and reproducible-distribution work for the macOS product
 
 ## Workspace Layout
 
@@ -77,7 +79,7 @@ Current local development requirements observed during scaffold work:
 - `cmake` for vendored `liboqs` builds used by `oqs`
 - A Unix-like shell environment
 
-Linux-only runtime components will additionally require platform tools such as:
+Linux reference runtime components additionally require platform tools such as:
 
 - `ip`
 - `wg`
@@ -119,12 +121,11 @@ Progress updates are logged in [changelog.md](changelog.md).
 
 ## Roadmap Snapshot
 
-- Finish relay, pairing, and mesh crate surfaces
-- Implement `qld` client orchestration
-- Implement `qls` server orchestration
-- Complete Linux GUI integration
-- Fill out architecture, threat model, cryptography, and pairing documentation
-- Expand CI to match the full project checklist
+- Productize a native macOS client around the existing shared Rust crates
+- Implement macOS tunnel and system-network integration layers
+- Build the first native frontend on top of the current GUI state and daemon IPC model
+- Refine Mode A first-release workflows, with mesh capability following behind the same product shell
+- Expand release engineering to signed, distributable macOS artifacts
 
 ## License
 

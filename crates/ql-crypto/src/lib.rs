@@ -216,6 +216,21 @@ impl fmt::Debug for HybridSigningKey {
     }
 }
 
+/// Serializable hybrid signing key material for local offline CA storage.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]
+pub struct HybridSigningKeyFile {
+    /// Ed25519 secret key bytes.
+    pub ed25519_secret: [u8; ED25519_SECRET_LEN],
+    /// Ed25519 public key bytes.
+    pub ed25519_public: [u8; HYBRID_KEM_SECRET_LEN],
+    /// ML-DSA-65 secret key bytes.
+    #[serde(with = "serde_bytes")]
+    pub mldsa65_secret: Vec<u8>,
+    /// ML-DSA-65 public key bytes.
+    #[serde(with = "serde_bytes")]
+    pub mldsa65_public: Vec<u8>,
+}
+
 /// The public verification key for hybrid signatures.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HybridVerifyingKey {
@@ -272,6 +287,44 @@ impl HybridSigningKey {
             ed25519: self.ed25519_public,
             mldsa65: self.mldsa65_public.clone(),
         }
+    }
+
+    /// Exports signing-key material for local encrypted or filesystem-backed storage.
+    #[must_use]
+    pub fn export_secret(&self) -> HybridSigningKeyFile {
+        HybridSigningKeyFile {
+            ed25519_secret: self.ed25519_secret,
+            ed25519_public: self.ed25519_public,
+            mldsa65_secret: self.mldsa65_secret.clone(),
+            mldsa65_public: self.mldsa65_public.clone(),
+        }
+    }
+
+    /// Reconstructs a hybrid signing key from serialized secret material.
+    pub fn import_secret(mut key_file: HybridSigningKeyFile) -> QuantumLinkResult<Self> {
+        let ed25519_public = SigningKey::from_bytes(&key_file.ed25519_secret)
+            .verifying_key()
+            .to_bytes();
+        if ed25519_public != key_file.ed25519_public {
+            return Err(QuantumLinkError::Crypto(
+                "Ed25519 public key does not match the stored secret key".to_owned(),
+            ));
+        }
+
+        let sig = mldsa65()?;
+        let _ = sig
+            .secret_key_from_bytes(key_file.mldsa65_secret.as_slice())
+            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 secret key length".to_owned()))?;
+        let _ = sig
+            .public_key_from_bytes(key_file.mldsa65_public.as_slice())
+            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 public key length".to_owned()))?;
+
+        Ok(Self {
+            ed25519_secret: key_file.ed25519_secret,
+            ed25519_public: key_file.ed25519_public,
+            mldsa65_secret: std::mem::take(&mut key_file.mldsa65_secret),
+            mldsa65_public: std::mem::take(&mut key_file.mldsa65_public),
+        })
     }
 
     /// Signs a message with both Ed25519 and ML-DSA-65.
@@ -537,6 +590,17 @@ mod tests {
         signature.mldsa65[0] ^= 0x01;
 
         assert!(verifying_key.verify(message, &signature).is_err());
+    }
+
+    #[test]
+    fn hybrid_signing_key_secret_roundtrip() {
+        let signing_key = HybridSigningKey::generate().unwrap();
+        let exported = signing_key.export_secret();
+        let restored = HybridSigningKey::import_secret(exported).unwrap();
+        let message = b"restore secret key";
+        let signature = restored.sign(message).unwrap();
+
+        restored.verifying_key().verify(message, &signature).unwrap();
     }
 
     #[test]

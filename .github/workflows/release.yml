@@ -6,8 +6,23 @@ on:
       - "v*"
 
 jobs:
-  placeholder:
+  build-release-artifacts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Release workflow will be expanded in later steps"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binaries
+        run: cargo build --release -p ql-daemon -p ql-server
+      - name: Create artifact archive
+        run: |
+          mkdir -p dist
+          cp target/release/qld dist/
+          cp target/release/qls dist/
+          cp README.md LICENSE changelog.md product.md dist/
+          tar -czf quantumlink-linux-amd64.tar.gz -C dist .
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantumlink-linux-amd64
+          path: quantumlink-linux-amd64.tar.gz

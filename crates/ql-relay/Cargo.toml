@@ -7,3 +7,9 @@ rust-version.workspace = true
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+ql-core = { path = "../ql-core" }
+tokio = { version = "1.44", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tracing = "0.1"
+uuid = { version = "1.8", features = ["v4"] }

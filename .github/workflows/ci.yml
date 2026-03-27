@@ -7,11 +7,29 @@ on:
   pull_request:
 
 jobs:
-  smoke:
+  test-workspace:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build workspace
+        run: cargo build --workspace
+      - name: Test workspace
+        run: cargo test --workspace
+
+  package-binaries:
+    needs: test-workspace
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Cargo test ql-crypto
-        run: cargo test -p ql-crypto
+      - name: Build qld and qls release binaries
+        run: cargo build --release -p ql-daemon -p ql-server

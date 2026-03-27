@@ -9,6 +9,8 @@ use std::time::Duration;
 
 use ipnetwork::IpNetwork;
 use ql_core::{QuantumLinkError, QuantumLinkResult};
+#[cfg(target_os = "macos")]
+use serde::Serialize;
 use zeroize::Zeroize;
 
 /// Configuration used to create and manage a WireGuard tunnel.
@@ -57,6 +59,72 @@ pub struct TunnelStats {
 	pub last_handshake: Option<Duration>,
 }
 
+/// Describes the runtime tunnel backend selected for the current target.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TunnelBackendDescriptor {
+	/// Stable backend identifier.
+	pub name: &'static str,
+	/// Whether this backend is meant to become a native product path.
+	pub product_target: bool,
+	/// Whether this backend currently performs native execution.
+	pub native_execution: bool,
+	/// Short note describing the backend state.
+	pub note: &'static str,
+}
+
+/// Native bridge request handed to a future macOS tunnel extension layer.
+#[cfg(target_os = "macos")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct MacOsTunnelBridgeRequest {
+	/// Provider bundle identifier expected by the native tunnel layer.
+	pub provider_bundle_identifier: String,
+	/// Runtime driver name.
+	pub driver: &'static str,
+	/// WireGuard interface name represented by the session.
+	pub interface_name: String,
+	/// Local listen port.
+	pub listen_port: u16,
+	/// Remote peer public key.
+	pub peer_public_key: [u8; 32],
+	/// Remote peer endpoint.
+	pub peer_endpoint: Option<SocketAddr>,
+	/// Allowed IPs routed through the tunnel.
+	pub allowed_ips: Vec<IpNetwork>,
+	/// Persistent keepalive interval.
+	pub persistent_keepalive: Option<u16>,
+	/// DNS servers associated with the session.
+	pub dns_servers: Vec<IpAddr>,
+	/// Requested tunnel MTU.
+	pub mtu: u16,
+}
+
+/// Native executor interface for macOS tunnel bridge requests.
+#[cfg(target_os = "macos")]
+pub trait MacOsTunnelBridgeExecutor {
+	/// Activates a tunnel session using the supplied bridge request.
+	fn activate_tunnel(&self, request: &MacOsTunnelBridgeRequest) -> QuantumLinkResult<()>;
+
+	/// Deactivates a tunnel session using the supplied bridge request.
+	fn deactivate_tunnel(&self, request: &MacOsTunnelBridgeRequest) -> QuantumLinkResult<()>;
+
+	/// Updates the peer endpoint for a tunnel session.
+	fn update_tunnel_endpoint(
+		&self,
+		request: &MacOsTunnelBridgeRequest,
+		endpoint: SocketAddr,
+	) -> QuantumLinkResult<()>;
+
+	/// Injects a preshared key for a tunnel session.
+	fn inject_tunnel_psk(
+		&self,
+		request: &MacOsTunnelBridgeRequest,
+		psk: [u8; 32],
+	) -> QuantumLinkResult<()>;
+
+	/// Reads tunnel statistics for a session.
+	fn read_tunnel_stats(&self, request: &MacOsTunnelBridgeRequest) -> QuantumLinkResult<TunnelStats>;
+}
+
 #[cfg(target_os = "linux")]
 #[derive(Debug)]
 enum DnsState {
@@ -74,10 +142,242 @@ pub struct WireGuardTunnel {
 }
 
 /// Managed WireGuard tunnel state.
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+#[derive(Debug)]
+pub struct WireGuardTunnel {
+	backend: MacOsTunnelBackend,
+}
+
+/// Managed WireGuard tunnel state.
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 #[derive(Debug)]
 pub struct WireGuardTunnel {
 	config: TunnelConfig,
+}
+
+/// Platform-selected tunnel facade used by higher layers.
+#[derive(Debug)]
+pub struct PlatformTunnel {
+	backend: WireGuardTunnel,
+}
+
+impl PlatformTunnel {
+	/// Creates the platform-selected tunnel backend.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the active platform backend cannot be created.
+	#[must_use]
+	pub fn new(config: TunnelConfig) -> QuantumLinkResult<Self> {
+		Ok(Self {
+			backend: WireGuardTunnel::new(config)?,
+		})
+	}
+
+	/// Returns the logical backend name selected for the current target.
+	#[must_use]
+	pub fn backend_name() -> &'static str {
+		platform_backend_name()
+	}
+
+	/// Returns the backend descriptor selected for the current target.
+	#[must_use]
+	pub fn backend_descriptor() -> TunnelBackendDescriptor {
+		tunnel_backend_descriptor()
+	}
+
+	/// Brings the platform tunnel up.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the active backend cannot be activated.
+	#[must_use]
+	pub fn bring_up(&self) -> QuantumLinkResult<()> {
+		self.backend.bring_up()
+	}
+
+	/// Tears the platform tunnel down.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the active backend cannot be removed cleanly.
+	#[must_use]
+	pub fn tear_down(self) -> QuantumLinkResult<()> {
+		self.backend.tear_down()
+	}
+
+	/// Updates the peer endpoint for the active backend.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the active backend cannot apply the update.
+	#[must_use]
+	pub fn update_peer_endpoint(&self, endpoint: SocketAddr) -> QuantumLinkResult<()> {
+		self.backend.update_peer_endpoint(endpoint)
+	}
+
+	/// Injects a preshared key through the active backend.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the active backend cannot apply the PSK.
+	#[must_use]
+	pub fn inject_psk(&self, psk: [u8; 32]) -> QuantumLinkResult<()> {
+		self.backend.inject_psk(psk)
+	}
+
+	/// Reads platform tunnel statistics.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the active backend cannot provide stats.
+	#[must_use]
+	pub fn stats(&self) -> QuantumLinkResult<TunnelStats> {
+		self.backend.stats()
+	}
+
+	/// Builds the macOS native bridge request for the active tunnel backend.
+	#[cfg(target_os = "macos")]
+	#[must_use]
+	pub fn macos_bridge_request(&self) -> MacOsTunnelBridgeRequest {
+		self.backend.macos_bridge_request()
+	}
+
+	/// Activates the tunnel through a supplied macOS executor.
+	#[cfg(target_os = "macos")]
+	pub fn bring_up_with_executor<E: MacOsTunnelBridgeExecutor>(
+		&self,
+		executor: &E,
+	) -> QuantumLinkResult<()> {
+		executor.activate_tunnel(&self.macos_bridge_request())
+	}
+
+	/// Tears down the tunnel through a supplied macOS executor.
+	#[cfg(target_os = "macos")]
+	pub fn tear_down_with_executor<E: MacOsTunnelBridgeExecutor>(
+		&self,
+		executor: &E,
+	) -> QuantumLinkResult<()> {
+		executor.deactivate_tunnel(&self.macos_bridge_request())
+	}
+
+	/// Updates the tunnel endpoint through a supplied macOS executor.
+	#[cfg(target_os = "macos")]
+	pub fn update_peer_endpoint_with_executor<E: MacOsTunnelBridgeExecutor>(
+		&self,
+		executor: &E,
+		endpoint: SocketAddr,
+	) -> QuantumLinkResult<()> {
+		executor.update_tunnel_endpoint(&self.macos_bridge_request(), endpoint)
+	}
+
+	/// Injects a PSK through a supplied macOS executor.
+	#[cfg(target_os = "macos")]
+	pub fn inject_psk_with_executor<E: MacOsTunnelBridgeExecutor>(
+		&self,
+		executor: &E,
+		psk: [u8; 32],
+	) -> QuantumLinkResult<()> {
+		executor.inject_tunnel_psk(&self.macos_bridge_request(), psk)
+	}
+
+	/// Reads tunnel statistics through a supplied macOS executor.
+	#[cfg(target_os = "macos")]
+	pub fn stats_with_executor<E: MacOsTunnelBridgeExecutor>(
+		&self,
+		executor: &E,
+	) -> QuantumLinkResult<TunnelStats> {
+		executor.read_tunnel_stats(&self.macos_bridge_request())
+	}
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MacOsTunnelDriver {
+	NetworkExtension,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MacOsTunnelState {
+	Prepared,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug)]
+struct MacOsTunnelBackend {
+	config: TunnelConfig,
+	driver: MacOsTunnelDriver,
+	state: MacOsTunnelState,
+	provider_bundle_identifier: String,
+}
+
+#[cfg(target_os = "macos")]
+impl MacOsTunnelBackend {
+	fn new(config: TunnelConfig) -> QuantumLinkResult<Self> {
+		validate_stub_config(&config)?;
+		Ok(Self {
+			provider_bundle_identifier: format!("com.quantumlink.tunnel.{}", config.interface_name),
+			config,
+			driver: MacOsTunnelDriver::NetworkExtension,
+			state: MacOsTunnelState::Prepared,
+		})
+	}
+
+	fn bring_up(&self) -> QuantumLinkResult<()> {
+		let _ = (&self.config, &self.driver, &self.state, &self.provider_bundle_identifier);
+		Err(QuantumLinkError::NotImplemented(
+			"macOS tunnel backend shape is defined but native Network Extension execution is not implemented yet"
+				.to_owned(),
+		))
+	}
+
+	fn tear_down(self) -> QuantumLinkResult<()> {
+		let _ = self;
+		Err(QuantumLinkError::NotImplemented(
+			"macOS tunnel backend shape is defined but native Network Extension execution is not implemented yet"
+				.to_owned(),
+		))
+	}
+
+	fn update_peer_endpoint(&self, endpoint: SocketAddr) -> QuantumLinkResult<()> {
+		let _ = (&self.config, &self.driver, endpoint);
+		Err(QuantumLinkError::NotImplemented(
+			"macOS tunnel backend shape is defined but native endpoint management is not implemented yet"
+				.to_owned(),
+		))
+	}
+
+	fn inject_psk(&self, psk: [u8; 32]) -> QuantumLinkResult<()> {
+		let _ = (&self.config, &self.driver, psk);
+		Err(QuantumLinkError::NotImplemented(
+			"macOS tunnel backend shape is defined but native PSK injection is not implemented yet"
+				.to_owned(),
+		))
+	}
+
+	fn stats(&self) -> QuantumLinkResult<TunnelStats> {
+		let _ = (&self.config, &self.state);
+		Err(QuantumLinkError::NotImplemented(
+			"macOS tunnel backend shape is defined but native tunnel statistics are not implemented yet"
+				.to_owned(),
+		))
+	}
+
+	fn bridge_request(&self) -> MacOsTunnelBridgeRequest {
+		MacOsTunnelBridgeRequest {
+			provider_bundle_identifier: self.provider_bundle_identifier.clone(),
+			driver: "network-extension",
+			interface_name: self.config.interface_name.clone(),
+			listen_port: self.config.listen_port,
+			peer_public_key: self.config.peer_public_key,
+			peer_endpoint: self.config.peer_endpoint,
+			allowed_ips: self.config.allowed_ips.clone(),
+			persistent_keepalive: self.config.persistent_keepalive,
+			dns_servers: self.config.dns_servers.clone(),
+			mtu: self.config.mtu,
+		}
+	}
 }
 
 #[cfg(target_os = "linux")]
@@ -298,7 +598,78 @@ impl WireGuardTunnel {
 	}
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+impl WireGuardTunnel {
+	/// Creates a macOS tunnel scaffold implementation.
+	///
+	/// # Errors
+	///
+	/// Returns an error if the shared tunnel configuration is invalid.
+	#[must_use]
+	pub fn new(config: TunnelConfig) -> QuantumLinkResult<Self> {
+		Ok(Self {
+			backend: MacOsTunnelBackend::new(config)?,
+		})
+	}
+
+	/// Brings the interface up.
+	///
+	/// # Errors
+	///
+	/// Always returns `NotImplemented` until the native macOS backend lands.
+	#[must_use]
+	pub fn bring_up(&self) -> QuantumLinkResult<()> {
+		self.backend.bring_up()
+	}
+
+	/// Tears the interface down.
+	///
+	/// # Errors
+	///
+	/// Always returns `NotImplemented` until the native macOS backend lands.
+	#[must_use]
+	pub fn tear_down(self) -> QuantumLinkResult<()> {
+		self.backend.tear_down()
+	}
+
+	/// Updates the peer endpoint.
+	///
+	/// # Errors
+	///
+	/// Always returns `NotImplemented` until the native macOS backend lands.
+	#[must_use]
+	pub fn update_peer_endpoint(&self, endpoint: SocketAddr) -> QuantumLinkResult<()> {
+		self.backend.update_peer_endpoint(endpoint)
+	}
+
+	/// Injects a preshared key for the peer.
+	///
+	/// # Errors
+	///
+	/// Always returns `NotImplemented` until the native macOS backend lands.
+	#[must_use]
+	pub fn inject_psk(&self, psk: [u8; 32]) -> QuantumLinkResult<()> {
+		self.backend.inject_psk(psk)
+	}
+
+	/// Reads tunnel statistics.
+	///
+	/// # Errors
+	///
+	/// Always returns `NotImplemented` until the native macOS backend lands.
+	#[must_use]
+	pub fn stats(&self) -> QuantumLinkResult<TunnelStats> {
+		self.backend.stats()
+	}
+
+	/// Builds the native bridge request for the current macOS tunnel backend.
+	#[must_use]
+	pub fn macos_bridge_request(&self) -> MacOsTunnelBridgeRequest {
+		self.backend.bridge_request()
+	}
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 impl WireGuardTunnel {
 	/// Creates a non-Linux stub tunnel implementation.
 	///
@@ -307,6 +678,7 @@ impl WireGuardTunnel {
 	/// Always returns `NotImplemented` on non-Linux targets.
 	#[must_use]
 	pub fn new(config: TunnelConfig) -> QuantumLinkResult<Self> {
+		validate_stub_config(&config)?;
 		let _ = config;
 		Err(QuantumLinkError::NotImplemented(
 			"WireGuard tunnel management is implemented for Linux only in v0.1".to_owned(),
@@ -379,6 +751,17 @@ impl WireGuardTunnel {
 	}
 }
 
+#[cfg(any(target_os = "macos", not(target_os = "linux")))]
+fn validate_stub_config(config: &TunnelConfig) -> QuantumLinkResult<()> {
+	if config.allowed_ips.is_empty() {
+		return Err(QuantumLinkError::WireGuard(
+			"at least one allowed IP is required".to_owned(),
+		));
+	}
+
+	Ok(())
+}
+
 #[cfg(target_os = "linux")]
 fn validate_config(config: &TunnelConfig) -> QuantumLinkResult<()> {
 	if config.interface_name.is_empty() || config.interface_name.len() > 15 {
@@ -403,6 +786,51 @@ fn validate_config(config: &TunnelConfig) -> QuantumLinkResult<()> {
 
 	Ok(())
 }
+
+#[cfg(target_os = "linux")]
+fn platform_backend_name() -> &'static str {
+	"linux-reference"
+}
+
+#[cfg(target_os = "macos")]
+fn platform_backend_name() -> &'static str {
+	"macos-scaffold"
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn platform_backend_name() -> &'static str {
+	"stub"
+}
+
+#[cfg(target_os = "linux")]
+fn tunnel_backend_descriptor() -> TunnelBackendDescriptor {
+	TunnelBackendDescriptor {
+		name: "linux-reference",
+		product_target: false,
+		native_execution: true,
+		note: "reference runtime backend used while the macOS product path is built",
+	}
+}
+
+#[cfg(target_os = "macos")]
+fn tunnel_backend_descriptor() -> TunnelBackendDescriptor {
+	TunnelBackendDescriptor {
+		name: "macos-scaffold",
+		product_target: true,
+		native_execution: false,
+		note: "typed macOS Network Extension backend shape without native execution yet",
+	}
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn tunnel_backend_descriptor() -> TunnelBackendDescriptor {
+	TunnelBackendDescriptor {
+		name: "stub",
+		product_target: false,
+		native_execution: false,
+		note: "unsupported-target placeholder backend",
+	}
+	}
 
 #[cfg(target_os = "linux")]
 fn apply_device_config(config: &TunnelConfig) -> QuantumLinkResult<()> {
@@ -491,13 +919,25 @@ fn run_command_owned(program: &str, args: Vec<String>) -> QuantumLinkResult<()> 
 
 #[cfg(test)]
 mod tests {
+	use super::PlatformTunnel;
+	use super::TunnelBackendDescriptor;
 	use super::TunnelConfig;
+	#[cfg(target_os = "macos")]
+	use super::{
+		MacOsTunnelBackend, MacOsTunnelBridgeExecutor, MacOsTunnelBridgeRequest,
+		MacOsTunnelDriver, MacOsTunnelState, TunnelStats,
+	};
 	use ipnetwork::IpNetwork;
+	#[cfg(target_os = "macos")]
+	use std::cell::RefCell;
+	#[cfg(target_os = "macos")]
+	use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+	#[cfg(target_os = "macos")]
+	use ql_core::QuantumLinkResult;
 	use zeroize::Zeroize;
 
-	#[test]
-	fn tunnel_config_zeroizes_private_key() {
-		let mut config = TunnelConfig {
+	fn sample_config() -> TunnelConfig {
+		TunnelConfig {
 			interface_name: "ql0".to_owned(),
 			private_key: [7_u8; 32],
 			listen_port: 51_820,
@@ -507,10 +947,128 @@ mod tests {
 			persistent_keepalive: Some(25),
 			dns_servers: Vec::new(),
 			mtu: 1_420,
-		};
+		}
+	}
+
+	#[test]
+	fn tunnel_config_zeroizes_private_key() {
+		let mut config = sample_config();
 
 		config.zeroize();
 
 		assert!(config.private_key.iter().all(|byte| *byte == 0));
+	}
+
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn macos_backend_name_reports_scaffold() {
+		assert_eq!(PlatformTunnel::backend_name(), "macos-scaffold");
+	}
+
+	#[test]
+	fn backend_descriptor_exposes_target_state() {
+		let descriptor: TunnelBackendDescriptor = PlatformTunnel::backend_descriptor();
+		assert_eq!(descriptor.name, PlatformTunnel::backend_name());
+	}
+
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn macos_backend_initializes_native_shape() {
+		let backend = MacOsTunnelBackend::new(sample_config()).unwrap();
+
+		assert_eq!(backend.driver, MacOsTunnelDriver::NetworkExtension);
+		assert_eq!(backend.state, MacOsTunnelState::Prepared);
+		assert_eq!(backend.provider_bundle_identifier, "com.quantumlink.tunnel.ql0");
+	}
+
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn macos_bridge_request_carries_tunnel_configuration() {
+		let tunnel = PlatformTunnel::new(sample_config()).unwrap();
+		let request = tunnel.macos_bridge_request();
+
+		assert_eq!(request.driver, "network-extension");
+		assert_eq!(request.interface_name, "ql0");
+		assert_eq!(request.provider_bundle_identifier, "com.quantumlink.tunnel.ql0");
+		assert_eq!(request.listen_port, 51_820);
+		assert_eq!(request.allowed_ips.len(), 1);
+	}
+
+	#[cfg(target_os = "macos")]
+	#[derive(Default)]
+	struct RecordingTunnelExecutor {
+		operations: RefCell<Vec<String>>,
+	}
+
+	#[cfg(target_os = "macos")]
+	impl MacOsTunnelBridgeExecutor for RecordingTunnelExecutor {
+		fn activate_tunnel(&self, request: &MacOsTunnelBridgeRequest) -> QuantumLinkResult<()> {
+			self.operations.borrow_mut().push(format!("activate:{}", request.interface_name));
+			Ok(())
+		}
+
+		fn deactivate_tunnel(&self, request: &MacOsTunnelBridgeRequest) -> QuantumLinkResult<()> {
+			self.operations.borrow_mut().push(format!("deactivate:{}", request.interface_name));
+			Ok(())
+		}
+
+		fn update_tunnel_endpoint(
+			&self,
+			request: &MacOsTunnelBridgeRequest,
+			endpoint: SocketAddr,
+		) -> QuantumLinkResult<()> {
+			self.operations.borrow_mut().push(format!("endpoint:{}:{}", request.interface_name, endpoint));
+			Ok(())
+		}
+
+		fn inject_tunnel_psk(
+			&self,
+			request: &MacOsTunnelBridgeRequest,
+			psk: [u8; 32],
+		) -> QuantumLinkResult<()> {
+			self.operations.borrow_mut().push(format!("psk:{}:{}", request.interface_name, psk[0]));
+			Ok(())
+		}
+
+		fn read_tunnel_stats(&self, request: &MacOsTunnelBridgeRequest) -> QuantumLinkResult<TunnelStats> {
+			self.operations.borrow_mut().push(format!("stats:{}", request.interface_name));
+			Ok(TunnelStats {
+				bytes_sent: 11,
+				bytes_received: 22,
+				last_handshake: None,
+			})
+		}
+	}
+
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn macos_executor_methods_consume_bridge_requests() {
+		let tunnel = PlatformTunnel::new(sample_config()).unwrap();
+		executor_assertions(tunnel);
+	}
+
+	#[cfg(target_os = "macos")]
+	fn executor_assertions(tunnel: PlatformTunnel) {
+		let executor = RecordingTunnelExecutor::default();
+		let endpoint = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 0, 0, 2), 51820));
+
+		tunnel.bring_up_with_executor(&executor).unwrap();
+		tunnel.update_peer_endpoint_with_executor(&executor, endpoint).unwrap();
+		tunnel.inject_psk_with_executor(&executor, [9_u8; 32]).unwrap();
+		let stats = tunnel.stats_with_executor(&executor).unwrap();
+		tunnel.tear_down_with_executor(&executor).unwrap();
+
+		assert_eq!(stats.bytes_sent, 11);
+		assert_eq!(stats.bytes_received, 22);
+		assert_eq!(
+			executor.operations.borrow().as_slice(),
+			[
+				"activate:ql0",
+				"endpoint:ql0:10.0.0.2:51820",
+				"psk:ql0:9",
+				"stats:ql0",
+				"deactivate:ql0",
+			]
+		);
 	}
 }

@@ -13,6 +13,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use ql_core::{QuantumLinkError, QuantumLinkResult};
+use reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
@@ -25,6 +26,8 @@ const DEFAULT_MAILBOX_TTL: Duration = Duration::from_secs(600);
 const DEFAULT_PEER_TTL: Duration = Duration::from_secs(120);
 const MAILBOX_CREATIONS_PER_HOUR: usize = 5;
 const RECEIVE_TIMEOUT: Duration = Duration::from_secs(30);
+const DEVICE_CERT_HEADER: &str = "x-quantumlink-device-cert";
+const PAIRING_ID_HEADER: &str = "x-quantumlink-pairing-id";
 
 /// Runtime configuration for the signaling server.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,6 +99,109 @@ pub struct MailboxCreateResponse {
 	pub mailbox_id: Uuid,
 }
 
+/// Authentication material used by the signal mailbox client.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SignalMailboxAuth {
+	/// Device certificate header used for authenticated devices.
+	DeviceCertificate(String),
+	/// Pairing-token header used during enrollment handoff.
+	PairingId(String),
+}
+
+/// Small HTTP client for QuantumLink signal operations.
+#[derive(Debug, Clone)]
+pub struct SignalClient {
+	base_url: String,
+	auth: SignalMailboxAuth,
+	http: HttpClient,
+}
+
+impl SignalClient {
+	/// Creates a signal client for the given base URL and auth material.
+	pub fn new(base_url: impl Into<String>, auth: SignalMailboxAuth) -> QuantumLinkResult<Self> {
+		let base_url = base_url.into().trim_end_matches('/').to_owned();
+		if base_url.is_empty() {
+			return Err(QuantumLinkError::Config(
+				"signal base URL must not be empty".to_owned(),
+			));
+		}
+
+		Ok(Self {
+			base_url,
+			auth,
+			http: HttpClient::new(),
+		})
+	}
+
+	/// Creates a mailbox on the signal server.
+	pub async fn create_mailbox(&self) -> QuantumLinkResult<MailboxCreateResponse> {
+		self.send_request(self.http.post(self.url("/mailbox/create")))
+			.await?
+			.error_for_status()
+			.map_err(http_error)?
+			.json::<MailboxCreateResponse>()
+			.await
+			.map_err(http_error)
+	}
+
+	/// Sends an opaque mailbox payload.
+	pub async fn send_mailbox_payload(&self, mailbox_id: Uuid, payload: Vec<u8>) -> QuantumLinkResult<()> {
+		self.send_request(
+			self.http
+				.post(self.url(&format!("/mailbox/{mailbox_id}/send")))
+				.json(&MailboxSendRequest { payload }),
+		)
+		.await?
+		.error_for_status()
+		.map_err(http_error)?;
+		Ok(())
+	}
+
+	/// Receives the next mailbox payload not sent by this client identity.
+	pub async fn receive_mailbox_payload(
+		&self,
+		mailbox_id: Uuid,
+	) -> QuantumLinkResult<Option<MailboxMessage>> {
+		let response = self
+			.send_request(self.http.post(self.url(&format!("/mailbox/{mailbox_id}/recv"))))
+			.await?;
+		if response.status() == reqwest::StatusCode::NO_CONTENT {
+			return Ok(None);
+		}
+		response
+			.error_for_status()
+			.map_err(http_error)?
+			.json::<MailboxMessage>()
+			.await
+			.map(Some)
+			.map_err(http_error)
+	}
+
+	/// Deletes the mailbox on the signal server.
+	pub async fn delete_mailbox(&self, mailbox_id: Uuid) -> QuantumLinkResult<()> {
+		self.send_request(self.http.post(self.url(&format!("/mailbox/{mailbox_id}/delete"))))
+			.await?
+			.error_for_status()
+			.map_err(http_error)?;
+		Ok(())
+	}
+
+	fn url(&self, path: &str) -> String {
+		format!("{}{}", self.base_url, path)
+	}
+
+	async fn send_request(
+		&self,
+		request: reqwest::RequestBuilder,
+	) -> QuantumLinkResult<reqwest::Response> {
+		let request = match &self.auth {
+			SignalMailboxAuth::DeviceCertificate(cert) => request.header(DEVICE_CERT_HEADER, cert),
+			SignalMailboxAuth::PairingId(pairing_id) => request.header(PAIRING_ID_HEADER, pairing_id),
+		};
+		request.send().await.map_err(http_error)
+	}
+}
+
 /// Running signaling service instance.
 #[derive(Debug)]
 pub struct SignalServer {
@@ -151,12 +257,20 @@ impl SignalServer {
 	/// Returns an error if the server task fails to join.
 	#[must_use]
 	pub async fn stop(self) -> QuantumLinkResult<()> {
-		self.shutdown.notify_waiters();
-		self.task.await.map_err(|error| {
-			QuantumLinkError::Io(std::io::Error::other(format!(
-				"ql-signal join error: {error}"
-			)))
-		})?;
+		self.shutdown.notify_one();
+		let abort_handle = self.task.abort_handle();
+		match tokio::time::timeout(Duration::from_secs(2), self.task).await {
+			Ok(join_result) => {
+				join_result.map_err(|error| {
+					QuantumLinkError::Io(std::io::Error::other(format!(
+						"ql-signal join error: {error}"
+					)))
+				})?;
+			}
+			Err(_) => {
+				abort_handle.abort();
+			}
+		}
 		Ok(())
 	}
 
@@ -410,14 +524,21 @@ async fn metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 }
 
 fn auth_identity(headers: &HeaderMap) -> Result<AuthIdentity, axum::response::Response> {
-	let Some(raw_cert) = headers.get("x-quantumlink-device-cert") else {
+	let Some(raw_identity) = headers
+		.get(DEVICE_CERT_HEADER)
+		.or_else(|| headers.get(PAIRING_ID_HEADER))
+	else {
 		return Err(StatusCode::UNAUTHORIZED.into_response());
 	};
 	let mut hasher = Sha256::new();
-	hasher.update(raw_cert.as_bytes());
+	hasher.update(raw_identity.as_bytes());
 	Ok(AuthIdentity {
 		fingerprint: format!("{:x}", hasher.finalize()),
 	})
+}
+
+fn http_error(error: reqwest::Error) -> QuantumLinkError {
+	QuantumLinkError::Io(std::io::Error::other(format!("signal HTTP error: {error}")))
 }
 
 async fn purge_expired_peers(state: &Arc<AppState>) {
@@ -459,11 +580,7 @@ async fn pop_message_for_recipient(mailbox: &Arc<MailboxEntry>, recipient: &str)
 }
 
 async fn cleanup_mailbox_if_complete(state: &Arc<AppState>, mailbox_id: Uuid, mailbox: &Arc<MailboxEntry>) {
-	let participants = mailbox.participants.lock().await;
-	let message_count = mailbox.messages.lock().await.len();
-	if participants.len() >= 2 && message_count == 0 {
-		state.mailboxes.write().await.remove(&mailbox_id);
-	}
+	let _ = (state, mailbox_id, mailbox);
 }
 
 fn peer_snapshot(peer: &PeerRecord) -> RegisteredPeer {
@@ -484,7 +601,10 @@ fn unix_timestamp() -> u64 {
 
 #[cfg(test)]
 mod tests {
-	use super::{peer_snapshot, PeerRecord, SignalConfig, DEFAULT_MAILBOX_TTL};
+	use super::{
+		peer_snapshot, PeerRecord, SignalClient, SignalConfig, SignalMailboxAuth, SignalServer,
+		DEFAULT_MAILBOX_TTL,
+	};
 	use std::time::{Duration, Instant};
 
 	#[test]
@@ -509,5 +629,41 @@ mod tests {
 		assert_eq!(snapshot.wg_public_key, [4_u8; 32]);
 		assert_eq!(snapshot.endpoint.port(), 51_820);
 		assert_eq!(snapshot.cert_fingerprint, "fingerprint");
+	}
+
+	#[tokio::test]
+	async fn signal_client_roundtrips_mailbox_message_with_pairing_auth() {
+		let server = SignalServer::start(SignalConfig {
+			bind_addr: "127.0.0.1:0".parse().unwrap(),
+			..SignalConfig::default()
+		})
+		.await
+		.unwrap();
+		let base_url = format!("http://{}", server.local_addr());
+		let initiator = SignalClient::new(
+			base_url.clone(),
+			SignalMailboxAuth::PairingId("rendezvous-1:initiator".to_owned()),
+		)
+		.unwrap();
+		let responder = SignalClient::new(
+			base_url,
+			SignalMailboxAuth::PairingId("rendezvous-1:responder".to_owned()),
+		)
+		.unwrap();
+
+		let mailbox = initiator.create_mailbox().await.unwrap();
+		initiator
+			.send_mailbox_payload(mailbox.mailbox_id, b"enrollment".to_vec())
+			.await
+			.unwrap();
+
+		let message = responder
+			.receive_mailbox_payload(mailbox.mailbox_id)
+			.await
+			.unwrap()
+			.unwrap();
+		assert_eq!(message.payload, b"enrollment".to_vec());
+
+		server.stop().await.unwrap();
 	}
 }

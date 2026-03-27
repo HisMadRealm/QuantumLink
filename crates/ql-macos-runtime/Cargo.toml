@@ -1,5 +1,5 @@
 [package]
-name = "ql-core"
+name = "ql-macos-runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,9 +9,9 @@ rust-version.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+ipnetwork = "0.21.1"
+ql-core = { path = "../ql-core" }
+ql-firewall = { path = "../ql-firewall" }
+ql-wireguard = { path = "../ql-wireguard" }
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
-toml = "0.8"
-
-[dev-dependencies]
 serde_json = "1.0"

@@ -7,3 +7,16 @@ rust-version.workspace = true
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.22"
+ql-core = { path = "../ql-core" }
+ql-crypto = { path = "../ql-crypto" }
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
+serde_json = "1.0"
+sha2 = "0.10"
+spake2 = "0.4"
+url = "2.5"
+uuid = { version = "1.8", features = ["v4"] }
+zeroize = "1.8"

@@ -3,6 +3,7 @@ members = [
     "crates/ql-core",
     "crates/ql-crypto",
     "crates/ql-macos-app",
+    "crates/ql-macos-helper",
     "crates/ql-macos-runtime",
     "crates/ql-wireguard",
     "crates/ql-rosenpass",

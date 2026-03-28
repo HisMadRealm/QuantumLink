@@ -137,6 +137,30 @@ The repository now also includes a dedicated adapter target, `ql-macos-runtime`,
 
 The repository now also includes a host-side shell target, `ql-macos-app`, which owns the shared GUI model and the macOS runtime adapter. This gives the macOS-first architecture a concrete application-side home for command queuing, daemon event projection, and host-operation planning.
 
+The repository now also includes a dedicated helper executable target, `ql-macos-helper`, which defines the first concrete external-process contract consumed by `ql-macos-runtime`. Tunnel operations still retain a development stub path there, but the firewall side now has a real PF-backed execution mode that can enable PF, install per-interface anchors, query active rules, and tear them down cleanly.
+
+The runtime adapter also now exposes an explicit `network-extension` execution mode for tunnel operations. That mode no longer treats the future native path as just another generic helper invocation: it requires a dedicated tunnel-controller executable, carries the full interface-address and WireGuard-key material needed for real Apple-side tunnel configuration, and keeps firewall execution on its own bridge.
+
+The Swift sources under `macos/QuantumLinkMacApp` now include a separate `QuantumLinkTunnelController` target plus a `QuantumLinkPacketTunnelProvider` target. The provider retains a SwiftPM-safe scaffold path for local builds, but it also now contains a `WireGuardKit`-backed implementation path that can build a real tunnel configuration, update endpoints, inject PSKs, and read runtime stats when compiled through the Xcode product target with the package dependency available.
+
+The Rust host shell now also treats tunnel and firewall maturity separately. In `network-extension` mode, tunnel connect, status, and disconnect can proceed through the dedicated tunnel controller even when no firewall bridge has been configured yet. That keeps the tunnel path testable without pretending kill-switch work is already done.
+
+The repository now also includes an initial native host scaffold under `macos/QuantumLinkMacApp`. This SwiftUI shell launches `ql-macos-app serve` and calls into its localhost HTTP endpoints, which keeps the first native UI iteration aligned with the shared Rust host-shell contract instead of inventing a parallel application model.
+
+That host scaffold now does more than fire demo actions. It polls the shared `/status` endpoint, consumes session state from either the development stub, the external helper path, or the new tunnel-controller path, allows a configurable Mode A endpoint for the connect path, and shows the resulting tunnel and firewall activity directly from the shared Rust boundary.
+
+The host/runtime seam also now has a concrete local-service shape inside `ql-macos-app`. The Rust host shell exposes `/health`, `/status`, `/mode-a/connect`, and `/mode-a/disconnect` over loopback so the native app can hold a persistent runtime process instead of spawning a fresh CLI command for every UI action. That service now has macOS integration coverage for both the original stub path and a tunnel-only `network-extension` path driven by a mock native controller.
+
+The repository now also contains a reproducible Xcode product path under `macos/QuantumLinkMacApp`. The generated `QuantumLinkMacApp.xcodeproj` includes:
+
+- the signed macOS app target
+- the Packet Tunnel Provider app extension target
+- the tunnel-controller command-line target
+- an external build target for `WireGuardGoBridgemacOS`
+- the `WireGuardKit` package dependency
+
+That gives the product path a concrete packaging shape compatible with the release-gate requirement that the macOS runtime be delivered as a signed native app plus extension, even though full `xcodebuild` validation still depends on a machine with full Xcode installed.
+
 ## First macOS Release Gate
 
 The first macOS product milestone should be considered complete when:

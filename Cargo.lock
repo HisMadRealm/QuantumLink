@@ -1190,12 +1190,25 @@ dependencies = [
 name = "ql-macos-app"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "ipnetwork",
  "ql-core",
  "ql-firewall",
  "ql-gui",
  "ql-macos-runtime",
  "ql-wireguard",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
+name = "ql-macos-helper"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

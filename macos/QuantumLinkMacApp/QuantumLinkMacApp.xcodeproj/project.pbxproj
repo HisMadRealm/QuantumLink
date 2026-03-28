@@ -1,0 +1,668 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0002FCB42935CF48BD2C80DD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE0057459581483057A8AA3 /* ContentView.swift */; };
+		133D69FE9F26B5F358BCF654 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A035301B97CC223BB8F5B81 /* NetworkExtension.framework */; };
+		15BCF6AC2AD822C088A6D384 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71B2BB71526F0299BFAEF9CB /* Cocoa.framework */; };
+		1C6FC2E7D11178E7FF71E793 /* WireGuardKit in Frameworks */ = {isa = PBXBuildFile; productRef = F8BA9A142DDECAAFC5A73D2E /* WireGuardKit */; };
+		56200E93031971C5560D1104 /* QuantumLinkMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CF33DFBDDDF2245A102FF2 /* QuantumLinkMacApp.swift */; };
+		61E707053D34EC0558BD114C /* TunnelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5527D300CF7B646F96189DA /* TunnelModels.swift */; };
+		63FEB826F9F8B2EBEB6A9B21 /* WireGuardKit in Frameworks */ = {isa = PBXBuildFile; productRef = F3B90641A478F28493D333DB /* WireGuardKit */; };
+		6725D7F985EE2FE6A2E3DEE9 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6A32765A4D7E0BE97840F5 /* main.swift */; };
+		6D15E70D7FC34E1751823040 /* TunnelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5527D300CF7B646F96189DA /* TunnelModels.swift */; };
+		6D85AEAF3D1FD8B8FD64592A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71B2BB71526F0299BFAEF9CB /* Cocoa.framework */; };
+		6E034FB3167AD2393CF63349 /* RuntimeShellModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46A5A51E88410AEE4F5F138A /* RuntimeShellModel.swift */; };
+		6F7D5E3C4170BAB2C5E0A4A9 /* QuantumLinkPacketTunnelProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 9E25897FC38BE12996F09C83 /* QuantumLinkPacketTunnelProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		77B9D1B5F7DE14B65308C6BE /* QuantumLinkPacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E56FDBE4A7185487CE312BA0 /* QuantumLinkPacketTunnelProvider.swift */; };
+		974EBC9EFFA9609C11702181 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A035301B97CC223BB8F5B81 /* NetworkExtension.framework */; };
+		A410E08F1C9C16729177FD42 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71B2BB71526F0299BFAEF9CB /* Cocoa.framework */; };
+		B6A86397FD7BFE2DE3C3A422 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A035301B97CC223BB8F5B81 /* NetworkExtension.framework */; };
+		BA2571769F7DC72AFAA57A0D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C6BB3532734D1ED31F04D801 /* Network.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		131BAE50A8ABC61555D7287A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 57A56C38D6D3B86AADCB2B35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E7C13D9A8E2AA1D4A9824E0;
+			remoteInfo = QuantumLinkPacketTunnelProvider;
+		};
+		6CD44A87B08EE2AA638C200C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 57A56C38D6D3B86AADCB2B35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6E78D79FF786311C2F83B60B;
+			remoteInfo = WireGuardGoBridgemacOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F9373FC922BE547AFA45C295 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6F7D5E3C4170BAB2C5E0A4A9 /* QuantumLinkPacketTunnelProvider.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		044A4E0777A6C093E7350257 /* QuantumLinkMacApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuantumLinkMacApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		24B7D2F68F77385732D54857 /* Bundles.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Bundles.xcconfig; path = Config/Bundles.xcconfig; sourceTree = "<group>"; };
+		2C93CBA2F1973B8CCBD12E37 /* QuantumLinkMacApp.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = QuantumLinkMacApp.xcconfig; path = Config/QuantumLinkMacApp.xcconfig; sourceTree = "<group>"; };
+		2E46050F0C90B05BA8811A1E /* archive_release.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; name = archive_release.sh; path = Scripts/archive_release.sh; sourceTree = "<group>"; };
+		46A5A51E88410AEE4F5F138A /* RuntimeShellModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RuntimeShellModel.swift; path = Sources/QuantumLinkMacApp/RuntimeShellModel.swift; sourceTree = "<group>"; };
+		4A035301B97CC223BB8F5B81 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/NetworkExtension.framework; sourceTree = DEVELOPER_DIR; };
+		5AE0057459581483057A8AA3 /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = Sources/QuantumLinkMacApp/ContentView.swift; sourceTree = "<group>"; };
+		6F34B6FA18B1B3ECAE4F843C /* QuantumLinkTunnelController.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = QuantumLinkTunnelController.xcconfig; path = Config/QuantumLinkTunnelController.xcconfig; sourceTree = "<group>"; };
+		71B2BB71526F0299BFAEF9CB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		74BD56CE8C88FAA36C210366 /* QuantumLinkMacApp.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = QuantumLinkMacApp.entitlements; path = Config/QuantumLinkMacApp.entitlements; sourceTree = "<group>"; };
+		75648EE86AC8F5936A7B4EEF /* QuantumLinkMacApp-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "QuantumLinkMacApp-Info.plist"; path = "Config/QuantumLinkMacApp-Info.plist"; sourceTree = "<group>"; };
+		7DCA4CB0F8CB1B1D49DFFD9B /* QuantumLinkTunnelController */ = {isa = PBXFileReference; includeInIndex = 0; path = QuantumLinkTunnelController; sourceTree = BUILT_PRODUCTS_DIR; };
+		8DC7969DBDD6D8A251229D00 /* QuantumLinkPacketTunnelProvider.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = QuantumLinkPacketTunnelProvider.xcconfig; path = Config/QuantumLinkPacketTunnelProvider.xcconfig; sourceTree = "<group>"; };
+		94CF33DFBDDDF2245A102FF2 /* QuantumLinkMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = QuantumLinkMacApp.swift; path = Sources/QuantumLinkMacApp/QuantumLinkMacApp.swift; sourceTree = "<group>"; };
+		9B6A32765A4D7E0BE97840F5 /* main.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = main.swift; path = Sources/QuantumLinkTunnelController/main.swift; sourceTree = "<group>"; };
+		9E25897FC38BE12996F09C83 /* QuantumLinkPacketTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuantumLinkPacketTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF5EAE01BA7B9DE10AD0AB24 /* QuantumLinkPacketTunnelProvider-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "QuantumLinkPacketTunnelProvider-Info.plist"; path = "Config/QuantumLinkPacketTunnelProvider-Info.plist"; sourceTree = "<group>"; };
+		B4D024140480B2F9A3FADDD3 /* generate_xcodeproj.rb */ = {isa = PBXFileReference; includeInIndex = 1; name = generate_xcodeproj.rb; path = Scripts/generate_xcodeproj.rb; sourceTree = "<group>"; };
+		B5527D300CF7B646F96189DA /* TunnelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TunnelModels.swift; path = Sources/QuantumLinkTunnelShared/TunnelModels.swift; sourceTree = "<group>"; };
+		BCE21E650B81EA64132EBAA9 /* mode_a_validate.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; name = mode_a_validate.sh; path = Scripts/mode_a_validate.sh; sourceTree = "<group>"; };
+		C250AA5E0C7D8544AD522155 /* QuantumLinkPacketTunnelProvider.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = QuantumLinkPacketTunnelProvider.entitlements; path = Config/QuantumLinkPacketTunnelProvider.entitlements; sourceTree = "<group>"; };
+		C6BB3532734D1ED31F04D801 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Network.framework; sourceTree = DEVELOPER_DIR; };
+		DFEDA512A9F7F1EDCCDA303E /* Signing.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Signing.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
+		E56FDBE4A7185487CE312BA0 /* QuantumLinkPacketTunnelProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = QuantumLinkPacketTunnelProvider.swift; path = Sources/QuantumLinkPacketTunnelProvider/QuantumLinkPacketTunnelProvider.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		15F8ADF8FE582589BA1E6AA5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6D85AEAF3D1FD8B8FD64592A /* Cocoa.framework in Frameworks */,
+				B6A86397FD7BFE2DE3C3A422 /* NetworkExtension.framework in Frameworks */,
+				BA2571769F7DC72AFAA57A0D /* Network.framework in Frameworks */,
+				1C6FC2E7D11178E7FF71E793 /* WireGuardKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54F6C0F48FA3A6B0A9A6E9BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A410E08F1C9C16729177FD42 /* Cocoa.framework in Frameworks */,
+				133D69FE9F26B5F358BCF654 /* NetworkExtension.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D0801731F26402EC799205A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15BCF6AC2AD822C088A6D384 /* Cocoa.framework in Frameworks */,
+				974EBC9EFFA9609C11702181 /* NetworkExtension.framework in Frameworks */,
+				63FEB826F9F8B2EBEB6A9B21 /* WireGuardKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0BBEBF4B2B1426EE24786392 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				71B2BB71526F0299BFAEF9CB /* Cocoa.framework */,
+				4A035301B97CC223BB8F5B81 /* NetworkExtension.framework */,
+				C6BB3532734D1ED31F04D801 /* Network.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		67C8F785C3B6E5449F5BDB19 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0BBEBF4B2B1426EE24786392 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		703AF4033AEBE8ACF19FB727 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Config;
+			sourceTree = "<group>";
+		};
+		7CC454D5C40E0D4F0EC53982 = {
+			isa = PBXGroup;
+			children = (
+				834FF65DC2B07C0658D37A63 /* Products */,
+				67C8F785C3B6E5449F5BDB19 /* Frameworks */,
+				7D7E7641D94769AB07959489 /* Sources */,
+				703AF4033AEBE8ACF19FB727 /* Config */,
+				B352FC680BD795139F4E9ECD /* Scripts */,
+				5AE0057459581483057A8AA3 /* ContentView.swift */,
+				94CF33DFBDDDF2245A102FF2 /* QuantumLinkMacApp.swift */,
+				46A5A51E88410AEE4F5F138A /* RuntimeShellModel.swift */,
+				E56FDBE4A7185487CE312BA0 /* QuantumLinkPacketTunnelProvider.swift */,
+				B5527D300CF7B646F96189DA /* TunnelModels.swift */,
+				9B6A32765A4D7E0BE97840F5 /* main.swift */,
+				24B7D2F68F77385732D54857 /* Bundles.xcconfig */,
+				75648EE86AC8F5936A7B4EEF /* QuantumLinkMacApp-Info.plist */,
+				74BD56CE8C88FAA36C210366 /* QuantumLinkMacApp.entitlements */,
+				2C93CBA2F1973B8CCBD12E37 /* QuantumLinkMacApp.xcconfig */,
+				AF5EAE01BA7B9DE10AD0AB24 /* QuantumLinkPacketTunnelProvider-Info.plist */,
+				C250AA5E0C7D8544AD522155 /* QuantumLinkPacketTunnelProvider.entitlements */,
+				8DC7969DBDD6D8A251229D00 /* QuantumLinkPacketTunnelProvider.xcconfig */,
+				DFEDA512A9F7F1EDCCDA303E /* Signing.xcconfig */,
+				6F34B6FA18B1B3ECAE4F843C /* QuantumLinkTunnelController.xcconfig */,
+			);
+			sourceTree = "<group>";
+		};
+		7D7E7641D94769AB07959489 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		834FF65DC2B07C0658D37A63 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				044A4E0777A6C093E7350257 /* QuantumLinkMacApp.app */,
+				9E25897FC38BE12996F09C83 /* QuantumLinkPacketTunnelProvider.appex */,
+				7DCA4CB0F8CB1B1D49DFFD9B /* QuantumLinkTunnelController */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B352FC680BD795139F4E9ECD /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+				2E46050F0C90B05BA8811A1E /* archive_release.sh */,
+				B4D024140480B2F9A3FADDD3 /* generate_xcodeproj.rb */,
+				BCE21E650B81EA64132EBAA9 /* mode_a_validate.sh */,
+			);
+			name = Scripts;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		6E78D79FF786311C2F83B60B /* WireGuardGoBridgemacOS */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = C45CB5ECF43C80A979B90200 /* Build configuration list for PBXLegacyTarget "WireGuardGoBridgemacOS" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = "$(BUILD_DIR%Build/*)SourcePackages/checkouts/wireguard-apple/Sources/WireGuardKitGo";
+			dependencies = (
+			);
+			name = WireGuardGoBridgemacOS;
+			passBuildSettingsInEnvironment = 1;
+			productName = WireGuardGoBridge;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXNativeTarget section */
+		2E7C13D9A8E2AA1D4A9824E0 /* QuantumLinkPacketTunnelProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0B838E66AF25F31E97F83A7 /* Build configuration list for PBXNativeTarget "QuantumLinkPacketTunnelProvider" */;
+			buildPhases = (
+				830D2B4DFF36A88489336C69 /* Sources */,
+				15F8ADF8FE582589BA1E6AA5 /* Frameworks */,
+				33600336FC339702FB69ECA3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0997FFD64EFD4350D4167510 /* PBXTargetDependency */,
+			);
+			name = QuantumLinkPacketTunnelProvider;
+			packageProductDependencies = (
+				F8BA9A142DDECAAFC5A73D2E /* WireGuardKit */,
+			);
+			productName = QuantumLinkPacketTunnelProvider;
+			productReference = 9E25897FC38BE12996F09C83 /* QuantumLinkPacketTunnelProvider.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		55064178BD9E809081A66886 /* QuantumLinkMacApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E2C0AB5122CFBC3877B19C03 /* Build configuration list for PBXNativeTarget "QuantumLinkMacApp" */;
+			buildPhases = (
+				1F9C49D66406862566760DFE /* Sources */,
+				D0801731F26402EC799205A1 /* Frameworks */,
+				FA988519256A7CD876C7CA31 /* Resources */,
+				F9373FC922BE547AFA45C295 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C8622C0295B9D797A7655493 /* PBXTargetDependency */,
+			);
+			name = QuantumLinkMacApp;
+			packageProductDependencies = (
+				F3B90641A478F28493D333DB /* WireGuardKit */,
+			);
+			productName = QuantumLinkMacApp;
+			productReference = 044A4E0777A6C093E7350257 /* QuantumLinkMacApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D59CD53F5E105E96A3ABAD08 /* QuantumLinkTunnelController */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 236FD712D01C1B9764EC699B /* Build configuration list for PBXNativeTarget "QuantumLinkTunnelController" */;
+			buildPhases = (
+				B167BA6C1A1017C451BA8F3B /* Sources */,
+				54F6C0F48FA3A6B0A9A6E9BD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QuantumLinkTunnelController;
+			productName = QuantumLinkTunnelController;
+			productReference = 7DCA4CB0F8CB1B1D49DFFD9B /* QuantumLinkTunnelController */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		57A56C38D6D3B86AADCB2B35 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				ORGANIZATIONNAME = QuantumLink;
+			};
+			buildConfigurationList = B2593C224E1087728359BB80 /* Build configuration list for PBXProject "QuantumLinkMacApp" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 7CC454D5C40E0D4F0EC53982;
+			minimizedProjectReferenceProxies = 0;
+			packageReferences = (
+				A566A984093219E132344348 /* XCRemoteSwiftPackageReference "wireguard-apple" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 834FF65DC2B07C0658D37A63 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				55064178BD9E809081A66886 /* QuantumLinkMacApp */,
+				2E7C13D9A8E2AA1D4A9824E0 /* QuantumLinkPacketTunnelProvider */,
+				D59CD53F5E105E96A3ABAD08 /* QuantumLinkTunnelController */,
+				6E78D79FF786311C2F83B60B /* WireGuardGoBridgemacOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		33600336FC339702FB69ECA3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA988519256A7CD876C7CA31 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1F9C49D66406862566760DFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0002FCB42935CF48BD2C80DD /* ContentView.swift in Sources */,
+				56200E93031971C5560D1104 /* QuantumLinkMacApp.swift in Sources */,
+				6E034FB3167AD2393CF63349 /* RuntimeShellModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		830D2B4DFF36A88489336C69 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				77B9D1B5F7DE14B65308C6BE /* QuantumLinkPacketTunnelProvider.swift in Sources */,
+				6D15E70D7FC34E1751823040 /* TunnelModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B167BA6C1A1017C451BA8F3B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6725D7F985EE2FE6A2E3DEE9 /* main.swift in Sources */,
+				61E707053D34EC0558BD114C /* TunnelModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0997FFD64EFD4350D4167510 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = WireGuardGoBridgemacOS;
+			target = 6E78D79FF786311C2F83B60B /* WireGuardGoBridgemacOS */;
+			targetProxy = 6CD44A87B08EE2AA638C200C /* PBXContainerItemProxy */;
+		};
+		C8622C0295B9D797A7655493 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = QuantumLinkPacketTunnelProvider;
+			target = 2E7C13D9A8E2AA1D4A9824E0 /* QuantumLinkPacketTunnelProvider */;
+			targetProxy = 131BAE50A8ABC61555D7287A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		114FE3220A456C0790BBFC4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		23E27B4127E24E3F808DA01D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C93CBA2F1973B8CCBD12E37 /* QuantumLinkMacApp.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "$(QUANTUMLINK_DEVELOPMENT_TEAM)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		5C09D9EF22B89D6D0CA2A88B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8DC7969DBDD6D8A251229D00 /* QuantumLinkPacketTunnelProvider.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "$(QUANTUMLINK_DEVELOPMENT_TEAM)";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		6ACF95DA92AFDCC09AEE4286 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		78CCF8494196DE5C020DD3F9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6F34B6FA18B1B3ECAE4F843C /* QuantumLinkTunnelController.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		7C3DE82FD2A3676CF015BBC9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C3E5D1D62E9B31528BF2FA72 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6F34B6FA18B1B3ECAE4F843C /* QuantumLinkTunnelController.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		DB2237E650CFABC09A34C85D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C93CBA2F1973B8CCBD12E37 /* QuantumLinkMacApp.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "$(QUANTUMLINK_DEVELOPMENT_TEAM)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		F1AC728AA1049CA26F3EB55F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FE841BFA1E3C8019A1ECF010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8DC7969DBDD6D8A251229D00 /* QuantumLinkPacketTunnelProvider.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				DEVELOPMENT_TEAM = "$(QUANTUMLINK_DEVELOPMENT_TEAM)";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		236FD712D01C1B9764EC699B /* Build configuration list for PBXNativeTarget "QuantumLinkTunnelController" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C3E5D1D62E9B31528BF2FA72 /* Release */,
+				78CCF8494196DE5C020DD3F9 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B2593C224E1087728359BB80 /* Build configuration list for PBXProject "QuantumLinkMacApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				114FE3220A456C0790BBFC4E /* Debug */,
+				7C3DE82FD2A3676CF015BBC9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0B838E66AF25F31E97F83A7 /* Build configuration list for PBXNativeTarget "QuantumLinkPacketTunnelProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE841BFA1E3C8019A1ECF010 /* Release */,
+				5C09D9EF22B89D6D0CA2A88B /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C45CB5ECF43C80A979B90200 /* Build configuration list for PBXLegacyTarget "WireGuardGoBridgemacOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6ACF95DA92AFDCC09AEE4286 /* Release */,
+				F1AC728AA1049CA26F3EB55F /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E2C0AB5122CFBC3877B19C03 /* Build configuration list for PBXNativeTarget "QuantumLinkMacApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				23E27B4127E24E3F808DA01D /* Release */,
+				DB2237E650CFABC09A34C85D /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A566A984093219E132344348 /* XCRemoteSwiftPackageReference "wireguard-apple" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://git.zx2c4.com/wireguard-apple";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F3B90641A478F28493D333DB /* WireGuardKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A566A984093219E132344348 /* XCRemoteSwiftPackageReference "wireguard-apple" */;
+			productName = WireGuardKit;
+		};
+		F8BA9A142DDECAAFC5A73D2E /* WireGuardKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A566A984093219E132344348 /* XCRemoteSwiftPackageReference "wireguard-apple" */;
+			productName = WireGuardKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 57A56C38D6D3B86AADCB2B35 /* Project object */;
+}

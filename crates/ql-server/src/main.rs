@@ -132,8 +132,9 @@ fn print_json<T>(value: &T) -> QuantumLinkResult<()>
 where
     T: Serialize,
 {
-    let json = serde_json::to_string_pretty(value)
-        .map_err(|error| QuantumLinkError::Config(format!("failed to serialize output: {error}")))?;
+    let json = serde_json::to_string_pretty(value).map_err(|error| {
+        QuantumLinkError::Config(format!("failed to serialize output: {error}"))
+    })?;
     println!("{json}");
     Ok(())
 }

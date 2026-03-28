@@ -1,0 +1,8 @@
+#include "Bundles.xcconfig"
+PRODUCT_NAME = QuantumLinkTunnelController
+SWIFT_VERSION = 5.9
+GENERATE_INFOPLIST_FILE = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO
+SKIP_INSTALL = YES

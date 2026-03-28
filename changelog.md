@@ -221,6 +221,86 @@ What we are doing next:
 
 ### Entry 1
 What we did:
+- Extended the macOS tunnel bridge contract so the Rust runtime now supplies interface addresses alongside the existing WireGuard key material, endpoint, DNS, and MTU fields. This closes a hard blocker for real Apple-side tunnel configuration because the Packet Tunnel Provider can now construct a real interface configuration instead of guessing addresses.
+- Updated the Swift tunnel shared models and the `QuantumLinkPacketTunnelProvider` so the provider can consume those interface addresses and, when `WireGuardKit` is available through the Xcode product path, build a real WireGuard tunnel configuration for activation, endpoint updates, PSK injection, and runtime-stat reads.
+- Added environment-driven Mode A tunnel-config override support to `ql-macos-app`, which allows the macOS validation path to consume a real self-hosted server configuration instead of a baked-in sample tunnel.
+- Added target-specific Xcode configuration files plus a reproducible `generate_xcodeproj.rb` script that emits `QuantumLinkMacApp.xcodeproj` with the macOS app target, Packet Tunnel Provider extension target, tunnel-controller target, the external `WireGuardGoBridgemacOS` build target, and the `WireGuardKit` package dependency.
+
+Where we are:
+- The repository now has a concrete signed-product path for the real macOS tunnel stack instead of only a SwiftPM scaffold: app target, Packet Tunnel Provider target, `WireGuardKit` dependency wiring, and a provider implementation that can speak the actual WireGuardKit model when built in that environment.
+- The remaining tunnel-side gap is product execution, not schema definition. This environment still cannot run `xcodebuild` because full Xcode is unavailable, so the Xcode-generated path is in place and verified structurally, but not compiled here as a signed app-extension bundle.
+
+What we are doing next:
+- Run the generated Xcode project on a full macOS/Xcode machine, set signing, install the packet tunnel extension, and validate tunnel establishment against a real self-hosted server.
+- Tighten any provider-runtime mismatches that appear once the real Network Extension and `WireGuardKit` runtime are exercised under macOS entitlement and signing rules.
+
+### Entry 2
+What we did:
+- Replaced the firewall-only macOS helper stub with a real PF-backed execution mode in `ql-macos-helper`. The helper can now enable PF, load per-interface anchors, query active rules, flush anchors on disconnect, and release PF enable tokens cleanly.
+- Extended the macOS firewall bridge request so kill-switch rules can explicitly permit the selected VPN peer endpoint while still blocking unsafe outbound traffic, and wired the Rust host planning path to pass that endpoint through during Mode A connect.
+- Implemented concrete PF rule generation for full kill-switch and DNS-only protection modes, including loopback allowance, tunnel-interface allowance, DNS allowlisting where required, and teardown-safe cleanup behavior.
+- Added a documented `mode_a_validate.sh` workflow and `docs/macos-mode-a-validation.md`, which together define the real end-to-end Mode A validation procedure: startup, connect, connected status, PF enforcement, disconnect, and cleanup.
+
+Where we are:
+- The macOS leak-protection path is no longer purely simulated. The repository now contains a real PF execution backend with tests, plus a documented validation flow that exercises the intended release-gate lifecycle.
+- The remaining firewall-side gap is machine validation, not design. We still need to run the PF-backed flow on a real signed macOS app-extension installation with a live self-hosted server config.
+
+What we are doing next:
+- Execute the validation script on a macOS machine with full Xcode, a signed installed Packet Tunnel Provider extension, and a real Mode A server configuration.
+- Harden any PF edge cases uncovered by real network transitions, including sleep/wake and partial tunnel-failure teardown behavior.
+
+### Entry 3
+What we did:
+- Hardened the PF helper state machine so it can recover from stale references and partial teardown cases more safely. The helper now tracks the active anchor name, flushes old anchors when reconnecting on a different interface, reacquires a PF enable token if the stored token survives but PF is no longer enabled, and clears stale token state when query results show that the firewall rules are already gone.
+- Added targeted helper tests that cover the new failure edges: reconnecting onto a new anchor, disabling when the requested anchor and stored anchor differ, recovering after PF is disabled while a stale token remains in state, and clearing stale state after inactive queries.
+- Tightened the generated Xcode product path for signed delivery: added shared signing and hardened-runtime settings in `Config/Signing.xcconfig`, corrected the Packet Tunnel Provider framework runpath to the app-extension-safe form, made the controller target explicitly unsigned as a developer utility, and updated the generated app scheme to archive from `Release`.
+- Added `Scripts/archive_release.sh` plus `docs/macos-distribution.md` so the repository now has a reproducible archive/export path for the signed macOS app and an optional notarytool submission flow.
+
+Where we are:
+- The repository now has a materially better macOS release path than the earlier scaffold: the app and extension targets are configured like signed deliverables, and the PF helper is more resilient to crash, sleep/wake-adjacent, and partial-cleanup edge cases.
+- The remaining gap is still machine execution. Full archive, export, and notarization were not run here because this environment does not have full Xcode, and the live Mode A validation still requires a real tunnel config and server.
+
+What we are doing next:
+- Run the archive/export script on a full Xcode machine with a real team ID and verify the generated app and extension sign cleanly.
+- Run the first live Mode A validation against a real self-hosted server and fix any entitlement, provider-runtime, or PF behavior issues that appear under actual macOS execution.
+
+### Entry 4
+What we did:
+- Added an explicit `network-extension` mode to `ql-macos-runtime` so tunnel execution now has a dedicated native-controller path instead of being modeled only as a generic external helper.
+- Added a `QuantumLinkTunnelController` Swift target and taught the SwiftUI host to select `network-extension` mode when a native tunnel controller has been provided.
+- Updated `ql-macos-app` status and tray projection so the service reports stub, helper-backed, and native tunnel-controller sessions distinctly.
+- Added Rust coverage for the new adapter mode and environment parsing, then validated the updated Rust crates plus the Swift package build.
+- Taught `ql-macos-app` to keep `network-extension` mode tunnel-operable even when no firewall bridge is configured yet, so connect, status, and disconnect can run honestly as tunnel-only operations.
+- Added a macOS service integration test that launches `ql-macos-app serve` in `network-extension` mode against a mock native tunnel controller and verifies connect, connected status, disconnect, and cleanup through the HTTP contract.
+
+Where we are:
+- The repository now has an explicit native tunnel bridge target for the macOS path rather than only a generic helper seam.
+- The native tunnel path can now be exercised end to end through the Rust service without requiring a fake firewall bridge.
+- This is still not a finished signed Network Extension integration, but the control surface now matches the intended product direction much more closely.
+
+What we are doing next:
+- Replace the tunnel-controller stub behavior with real Network Extension lifecycle work.
+- Move the firewall path to the same level of native integration so kill switch and leak protection become system-real instead of bridge-planned.
+
+### Entry 5
+What we did:
+- Replaced the validation-only `ql-macos-helper` behavior with a stateful execution stub that persists simulated tunnel and firewall state, returns structured firewall query results, and reports tunnel stats.
+- Updated `ql-macos-runtime` to parse helper JSON responses so firewall queries and tunnel-stat reads can flow through the existing executor interfaces instead of always falling back to hardcoded defaults.
+- Extended `ql-macos-app` with JSON-oriented commands for status, Mode A demo connect, and Mode A demo disconnect so a native host can consume structured output from the shared Rust shell.
+- Added a first SwiftUI macOS host scaffold under `macos/QuantumLinkMacApp` that now launches `ql-macos-app serve`, talks to it over localhost HTTP, and displays runtime status, planned operations, and raw JSON output.
+- Tightened the Rust and Swift status flow so `status-json` reports helper-backed session activity, the connect JSON path accepts an explicit server endpoint, and the SwiftUI shell polls real session state through the shared service instead of treating everything as a one-shot demo.
+- Added HTTP-level tests around the `ql-macos-app` service endpoints and switched service failures to real HTTP status codes so invalid requests no longer come back as successful text responses.
+
+Where we are:
+- The macOS helper contract now behaves like a stateful execution seam rather than a pure payload validator.
+- The repository has a concrete native macOS UI entry point that can exercise and display helper-backed Rust session state through a persistent localhost IPC service without waiting for FFI or Network Extension work.
+
+What we are doing next:
+- Replace the localhost service seam with native signed integration once the Network Extension and firewall execution path is ready.
+- Keep replacing demo-only execution with real tunnel, firewall, and certificate lifecycle behavior.
+
+### Entry 6
+What we did:
 - Added `ql-macos-app` as the native macOS host-shell crate that owns the shared `ql-gui` model and the `ql-macos-runtime` adapter.
 - Implemented host-side planning helpers that translate shared GUI and daemon intent into native tunnel and firewall operations for the macOS runtime boundary.
 - Cleaned up the workspace wiring after the initial scaffold pass so the root workspace manifest remains workspace-only and the new crate owns its own package metadata.
@@ -234,7 +314,7 @@ What we are doing next:
 - Validate the new app-shell crate alongside `ql-macos-runtime`, `ql-wireguard`, `ql-firewall`, and `ql-daemon`.
 - Keep building toward a signed native macOS product shell that can own the eventual platform UI and helper-process integration.
 
-### Entry 3
+### Entry 7
 What we did:
 - Added high-level `qld pair-initiate` and `qld pair-accept` workflows that compose mailbox creation, SPAKE2 exchange, verification-word derivation, enrollment-bundle transport, bundle import, and mailbox cleanup into one command per side.
 - Adjusted mailbox lifecycle behavior in `ql-signal` so a pairing mailbox can survive a multi-stage exchange instead of being deleted after the first empty roundtrip.
@@ -248,7 +328,7 @@ What we are doing next:
 - Expose the high-level pairing flow through the GUI model and command surface.
 - Then continue with operational trust-distribution hardening and LAN confirmation integration.
 
-### Entry 4
+### Entry 8
 What we did:
 - Extended the shared `ql-core` daemon IPC surface with high-level pairing commands and events for initiator or responder workflows, verification words, and successful pairing completion.
 - Extended `ql-gui` with a dedicated pairing panel state model so the future desktop frontend can queue high-level pairing commands and present live pairing progress, mailbox details, verification words, and completion status.
@@ -262,7 +342,7 @@ What we are doing next:
 - Bind the pairing workflow into the GUI frontend layer and tray interactions.
 - Then continue with LAN confirmation and operational trust-distribution hardening.
 
-### Entry 5
+### Entry 9
 What we did:
 - Repositioned the repository documentation around a macOS-first product strategy instead of a broad simultaneous platform push.
 - Updated the top-level README to describe the current shared-Rust-core plus native-macOS-product direction and to demote Linux runtime pieces to reference-backend status where appropriate.
@@ -276,7 +356,7 @@ What we are doing next:
 - Define the macOS tunnel and leak-protection abstraction boundary that will replace the current Linux-only runtime assumptions.
 - Build the native macOS frontend around the existing shared GUI and daemon models, with Mode A as the release gate.
 
-### Entry 6
+### Entry 10
 What we did:
 - Added a dedicated macOS runtime architecture document that defines the platform boundary between shared Rust product logic and platform-specific tunnel plus leak-protection execution.
 - Introduced `PlatformTunnel` and `PlatformFirewall` facades so higher layers no longer need to depend directly on Linux-specific runtime type names.
@@ -290,7 +370,7 @@ What we are doing next:
 - Add the first macOS backend scaffold for tunnel and leak-protection responsibilities.
 - Then bind the native macOS app shell onto the shared GUI and daemon surfaces.
 
-### Entry 7
+### Entry 11
 What we did:
 - Added an explicit `macos-scaffold` backend path in both `ql-wireguard` and `ql-firewall` so Apple targets are no longer treated as a generic non-Linux stub.
 - Added macOS-specific `NotImplemented` messages that describe the missing native runtime pieces more precisely: tunnel lifecycle, endpoint updates, PSK injection, leak protection, and state reporting.
@@ -304,7 +384,7 @@ What we are doing next:
 - Replace the `macos-scaffold` tunnel and firewall paths with the first native execution layer.
 - Then start the native macOS frontend shell on top of the existing shared GUI and daemon model.
 
-### Entry 8
+### Entry 12
 What we did:
 - Refined the macOS tunnel scaffold in `ql-wireguard` into a typed backend shape instead of a flat target-specific stub.
 - Added a backend descriptor surface so higher layers can inspect whether the active target backend is a product target and whether it already performs native execution.
@@ -318,7 +398,7 @@ What we are doing next:
 - Replace the macOS tunnel backend placeholder methods with the first native execution integration.
 - Then refine the macOS firewall scaffold to match the tunnel side before binding the native app shell.
 
-### Entry 9
+### Entry 13
 What we did:
 - Refined the macOS firewall scaffold in `ql-firewall` into a typed backend shape instead of flat target-gated placeholder methods.
 - Added a firewall backend descriptor surface so higher layers can inspect whether the selected firewall backend is a product target and whether it already performs native execution.
@@ -332,7 +412,7 @@ What we are doing next:
 - Replace the macOS tunnel and firewall placeholder methods with the first native execution integration points.
 - Then start the native macOS frontend shell on top of the existing shared GUI and daemon model.
 
-### Entry 10
+### Entry 14
 What we did:
 - Added public macOS bridge-request models in `ql-wireguard` and `ql-firewall` so the Rust runtime can now emit structured native-integration requests instead of only hiding target-specific placeholder logic internally.
 - Added bridge-request accessors for the macOS tunnel and firewall paths, including tunnel session configuration and firewall operation payloads for kill switch, DNS-only protection, disable, and query actions.
@@ -346,7 +426,7 @@ What we are doing next:
 - Introduce the first native-execution adapter that consumes the macOS bridge requests.
 - Then begin the native macOS app shell that will own and drive those adapters.
 
-### Entry 11
+### Entry 15
 What we did:
 - Added macOS executor interfaces in `ql-wireguard` and `ql-firewall` so the runtime can now drive native execution through explicit adapter traits instead of stopping at bridge payload generation.
 - Added executor-backed helper methods on the platform facades, allowing higher-level code to activate tunnels, update endpoints, inject PSKs, query stats, and apply firewall operations through supplied macOS executors.
@@ -360,7 +440,7 @@ What we are doing next:
 - Add the first concrete macOS native adapter implementation target for the executor interfaces.
 - Then scaffold the native macOS app shell around those adapters and the shared GUI plus daemon model.
 
-### Entry 12
+### Entry 16
 What we did:
 - Added a new `ql-macos-runtime` crate as the first concrete macOS adapter target in the workspace.
 - Implemented a configurable adapter that consumes the macOS tunnel and firewall executor traits, serializes bridge requests, and can operate either in stub mode or through external helper processes.
@@ -374,7 +454,7 @@ What we are doing next:
 - Scaffold the native macOS app shell that owns the adapter and shared GUI plus daemon surfaces.
 - Then define the first concrete native helper or extension entrypoint that can back the adapter's external process mode.
 
-### Entry 13
+### Entry 17
 What we did:
 - Added a new `ql-macos-app` crate as the first native macOS host-shell target in the workspace.
 - Implemented a host model that owns the shared `ql-gui` model and the `ql-macos-runtime` adapter, and can queue daemon commands, apply daemon events, and plan connect or disconnect host operations.
@@ -388,7 +468,7 @@ What we are doing next:
 - Define the first helper or extension entrypoint contract that backs `ql-macos-runtime` external-process execution.
 - Then start the native frontend shell implementation on top of `ql-macos-app`.
 
-### Entry 14
+### Entry 18
 What we did:
 - Added a runnable `ql-macos-app` binary entrypoint so the host shell can be instantiated directly from the workspace instead of only through tests.
 - Wired environment-driven adapter selection into that bootstrap path, including stub mode and external-helper configuration placeholders for tunnel and firewall execution.
@@ -401,3 +481,17 @@ Where we are:
 What we are doing next:
 - Add the first concrete helper or extension contract that backs `ql-macos-runtime` external-process mode.
 - Then replace the bootstrap CLI with a real native macOS UI host around the same shared shell.
+
+### Entry 19
+What we did:
+- Added `ql-macos-helper` as the first concrete external-process helper target for the macOS runtime boundary.
+- Updated `ql-macos-runtime` external-process dispatch to invoke helpers with target-aware arguments and capture helper output on success.
+- Extended the `ql-macos-app` bootstrap with Mode A demo connect and disconnect commands that can drive the host shell through either stub mode or the new helper-backed external mode.
+
+Where we are:
+- The macOS-first stack now has a real executable contract for external helper execution instead of only placeholder helper-path configuration.
+- The remaining gap is replacing payload validation with actual Network Extension and packet-filter work, then binding the same flow into a native macOS UI.
+
+What we are doing next:
+- Replace the validation-only helper path with the first native tunnel and firewall implementation behind the same contract.
+- Then promote the app-shell demo flow into a true macOS frontend rather than a bootstrap CLI.

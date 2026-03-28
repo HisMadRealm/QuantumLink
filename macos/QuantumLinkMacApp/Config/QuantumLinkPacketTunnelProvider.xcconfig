@@ -1,0 +1,11 @@
+#include "Bundles.xcconfig"
+PRODUCT_NAME = QuantumLinkPacketTunnelProvider
+PRODUCT_BUNDLE_IDENTIFIER = $(PACKET_TUNNEL_PROVIDER_BUNDLE_IDENTIFIER)
+INFOPLIST_FILE = Config/QuantumLinkPacketTunnelProvider-Info.plist
+CODE_SIGN_ENTITLEMENTS = Config/QuantumLinkPacketTunnelProvider.entitlements
+SWIFT_VERSION = 5.9
+GENERATE_INFOPLIST_FILE = NO
+APPLICATION_EXTENSION_API_ONLY = YES
+ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks
+SKIP_INSTALL = YES

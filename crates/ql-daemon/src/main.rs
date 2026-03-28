@@ -14,9 +14,8 @@ use base64::Engine as _;
 use ipnetwork::IpNetwork;
 use ql_core::{
     AlgorithmSet, CertificateAuthority, CertificateRequest, CryptoMode, DaemonEvent,
-    DeviceCertificate, IdentityAuditEvent, KeyStorageLayout, QuantumLinkConfig,
-    QuantumLinkError, QuantumLinkResult, RelayPolicy, RevocationList, RevocationRecord,
-    TunnelState,
+    DeviceCertificate, IdentityAuditEvent, KeyStorageLayout, QuantumLinkConfig, QuantumLinkError,
+    QuantumLinkResult, RelayPolicy, RevocationList, RevocationRecord, TunnelState,
 };
 use ql_crypto::{HybridSigningKey, HybridSigningKeyFile, HybridVerifyingKey};
 use ql_firewall::PlatformFirewall;
@@ -35,6 +34,7 @@ use uuid::Uuid;
 struct RuntimeArgs {
     config_path: Option<PathBuf>,
     interface_name: String,
+    interface_addresses: Vec<IpNetwork>,
     private_key: [u8; 32],
     peer_public_key: [u8; 32],
     peer_endpoint: SocketAddr,
@@ -185,6 +185,7 @@ enum CliCommand {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 struct ConnectPlan {
     interface_name: String,
+    interface_addresses: Vec<String>,
     peer_endpoint: SocketAddr,
     allowed_ips: Vec<String>,
     listen_port: u16,
@@ -320,6 +321,12 @@ impl ClientDaemon {
     fn plan(&self) -> ConnectPlan {
         ConnectPlan {
             interface_name: self.runtime.interface_name.clone(),
+            interface_addresses: self
+                .runtime
+                .interface_addresses
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
             peer_endpoint: self.runtime.peer_endpoint,
             allowed_ips: self
                 .runtime
@@ -342,14 +349,20 @@ impl ClientDaemon {
         DaemonStatusSnapshot {
             state: self.state.clone(),
             plan: Some(self.plan()),
-            psk_age_seconds: self.rosenpass.as_ref().map(|manager| manager.psk_age().as_secs()),
+            psk_age_seconds: self
+                .rosenpass
+                .as_ref()
+                .map(|manager| manager.psk_age().as_secs()),
             mesh_enabled: self.config.mesh.enabled,
             managed_mesh_peers: self.mesh.dashboard().len(),
         }
     }
 
     async fn connect(&mut self) -> QuantumLinkResult<Vec<DaemonEvent>> {
-        if matches!(self.state, TunnelState::Connected { .. } | TunnelState::Connecting) {
+        if matches!(
+            self.state,
+            TunnelState::Connected { .. } | TunnelState::Connecting
+        ) {
             return Err(QuantumLinkError::Config(
                 "daemon is already connecting or connected".to_owned(),
             ));
@@ -439,6 +452,7 @@ impl ClientDaemon {
     fn build_tunnel_config(&self) -> TunnelConfig {
         TunnelConfig {
             interface_name: self.runtime.interface_name.clone(),
+            interface_addresses: self.runtime.interface_addresses.clone(),
             private_key: self.runtime.private_key,
             listen_port: self.runtime.listen_port,
             peer_public_key: self.runtime.peer_public_key,
@@ -624,7 +638,9 @@ async fn receive_enrollment_via_mailbox(
     let message = client
         .receive_mailbox_payload(mailbox_id)
         .await?
-        .ok_or_else(|| QuantumLinkError::Pairing("no enrollment payload available in mailbox".to_owned()))?;
+        .ok_or_else(|| {
+            QuantumLinkError::Pairing("no enrollment payload available in mailbox".to_owned())
+        })?;
     let bundle = PairingMailboxPayload::decode(&message.payload)?.into_enrollment_bundle()?;
     let (certificate_path, verification) = import_enrollment_bundle_value(layout, bundle, now)?;
     Ok(PairMailboxReceiveResult {
@@ -677,7 +693,9 @@ async fn initiate_pairing_enrollment_on_mailbox(
     let message = client
         .receive_mailbox_payload(mailbox_id)
         .await?
-        .ok_or_else(|| QuantumLinkError::Pairing("no SPAKE2 response received from the responder".to_owned()))?;
+        .ok_or_else(|| {
+            QuantumLinkError::Pairing("no SPAKE2 response received from the responder".to_owned())
+        })?;
     let response = expect_spake2_message(&message.payload)?;
     let shared_secret = session.finish(&response)?;
     let sent = send_enrollment_via_mailbox(
@@ -712,7 +730,9 @@ async fn accept_pairing_enrollment(
     let inbound = client
         .receive_mailbox_payload(mailbox_id)
         .await?
-        .ok_or_else(|| QuantumLinkError::Pairing("no SPAKE2 message received from the initiator".to_owned()))?;
+        .ok_or_else(|| {
+            QuantumLinkError::Pairing("no SPAKE2 message received from the initiator".to_owned())
+        })?;
     let request = expect_spake2_message(&inbound.payload)?;
     let (session, outbound_message) = WormholePairingSession::start(code, pairing_id)?;
     let shared_secret = session.finish(&request)?;
@@ -806,13 +826,15 @@ fn handle_identity_command(command: IdentityCommand) -> QuantumLinkResult<()> {
         IdentityCommand::ExportEnrollment(args) => {
             let layout = storage_layout(args.root_dir);
             let exported_at = args.exported_at.unwrap_or(current_unix_timestamp()?);
-            let (path, bundle) = export_enrollment_bundle(&layout, &args.certificate_path, exported_at)?;
+            let (path, bundle) =
+                export_enrollment_bundle(&layout, &args.certificate_path, exported_at)?;
             print_json(&EnrollmentExportResult { path, bundle })
         }
         IdentityCommand::ImportEnrollment(args) => {
             let layout = storage_layout(args.root_dir);
             let now = args.now.unwrap_or(current_unix_timestamp()?);
-            let (certificate_path, verification) = import_enrollment_bundle(&layout, &args.bundle_path, now)?;
+            let (certificate_path, verification) =
+                import_enrollment_bundle(&layout, &args.bundle_path, now)?;
             print_json(&EnrollmentImportResult {
                 root_dir: layout.root_dir.clone(),
                 certificate_path,
@@ -971,7 +993,8 @@ fn export_enrollment_bundle(
     let ca = load_certificate_authority(layout)?;
     let revocations = load_revocations(layout)?;
     let device: SignedDeviceCertificate = read_json_file(certificate_path)?;
-    let verification = device.verify(&ca.authority, &ca.verifying_key, &revocations, exported_at)?;
+    let verification =
+        device.verify(&ca.authority, &ca.verifying_key, &revocations, exported_at)?;
     if !verification.valid_at_time {
         return Err(QuantumLinkError::Auth(
             "cannot export an expired or not-yet-valid enrollment bundle".to_owned(),
@@ -990,9 +1013,10 @@ fn export_enrollment_bundle(
         revocations,
         exported_at,
     };
-    let path = layout
-        .device_dir
-        .join(format!("enrollment-{}.json", bundle.device.certificate.serial));
+    let path = layout.device_dir.join(format!(
+        "enrollment-{}.json",
+        bundle.device.certificate.serial
+    ));
     write_json_file(&path, &bundle)?;
     append_identity_audit_event(
         layout,
@@ -1076,7 +1100,9 @@ fn pairing_signal_client(
     )
 }
 
-fn load_certificate_authority(layout: &KeyStorageLayout) -> QuantumLinkResult<StoredCertificateAuthority> {
+fn load_certificate_authority(
+    layout: &KeyStorageLayout,
+) -> QuantumLinkResult<StoredCertificateAuthority> {
     let authority: CertificateAuthority = read_json_file(&layout.ca_metadata_path())?;
     let verifying_key: HybridVerifyingKey = read_json_file(&layout.ca_verifying_key_path())?;
     Ok(StoredCertificateAuthority {
@@ -1108,8 +1134,9 @@ fn append_identity_audit_event(
         .append(true)
         .open(layout.audit_log_path())
         .map_err(QuantumLinkError::Io)?;
-    let line = serde_json::to_string(&event)
-        .map_err(|error| QuantumLinkError::Config(format!("failed to serialize audit event: {error}")))?;
+    let line = serde_json::to_string(&event).map_err(|error| {
+        QuantumLinkError::Config(format!("failed to serialize audit event: {error}"))
+    })?;
     writeln!(file, "{line}").map_err(QuantumLinkError::Io)
 }
 
@@ -1127,8 +1154,9 @@ fn certificate_serial(issued_at: u64, wg_public_key: &[u8; 32]) -> String {
 }
 
 fn certificate_signing_message(certificate: &DeviceCertificate) -> QuantumLinkResult<Vec<u8>> {
-    serde_json::to_vec(certificate)
-        .map_err(|error| QuantumLinkError::Config(format!("failed to serialize certificate: {error}")))
+    serde_json::to_vec(certificate).map_err(|error| {
+        QuantumLinkError::Config(format!("failed to serialize certificate: {error}"))
+    })
 }
 
 fn encode_fingerprint(bytes: &[u8]) -> String {
@@ -1140,8 +1168,9 @@ where
     T: DeserializeOwned,
 {
     let contents = fs::read_to_string(path).map_err(QuantumLinkError::Io)?;
-    serde_json::from_str(&contents)
-        .map_err(|error| QuantumLinkError::Config(format!("failed to parse {}: {error}", path.display())))
+    serde_json::from_str(&contents).map_err(|error| {
+        QuantumLinkError::Config(format!("failed to parse {}: {error}", path.display()))
+    })
 }
 
 fn write_json_file<T>(path: &Path, value: &T) -> QuantumLinkResult<()>
@@ -1151,8 +1180,9 @@ where
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(QuantumLinkError::Io)?;
     }
-    let json = serde_json::to_string_pretty(value)
-        .map_err(|error| QuantumLinkError::Config(format!("failed to serialize {}: {error}", path.display())))?;
+    let json = serde_json::to_string_pretty(value).map_err(|error| {
+        QuantumLinkError::Config(format!("failed to serialize {}: {error}", path.display()))
+    })?;
     fs::write(path, json).map_err(QuantumLinkError::Io)
 }
 
@@ -1160,7 +1190,9 @@ fn current_unix_timestamp() -> QuantumLinkResult<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
-        .map_err(|error| QuantumLinkError::Config(format!("system clock before unix epoch: {error}")))
+        .map_err(|error| {
+            QuantumLinkError::Config(format!("system clock before unix epoch: {error}"))
+        })
 }
 
 fn load_config(path: Option<&Path>) -> QuantumLinkResult<QuantumLinkConfig> {
@@ -1174,8 +1206,9 @@ fn print_json<T>(value: &T) -> QuantumLinkResult<()>
 where
     T: Serialize,
 {
-    let json = serde_json::to_string_pretty(value)
-        .map_err(|error| QuantumLinkError::Config(format!("failed to serialize output: {error}")))?;
+    let json = serde_json::to_string_pretty(value).map_err(|error| {
+        QuantumLinkError::Config(format!("failed to serialize output: {error}"))
+    })?;
     println!("{json}");
     Ok(())
 }
@@ -1210,7 +1243,9 @@ fn parse_status_args(arguments: &[String]) -> Result<CliCommand, String> {
     while index < arguments.len() {
         match arguments[index].as_str() {
             "--config" => {
-                config_path = Some(PathBuf::from(next_value(arguments, &mut index, "--config")?));
+                config_path = Some(PathBuf::from(next_value(
+                    arguments, &mut index, "--config",
+                )?));
             }
             other => return Err(format!("unknown status argument: {other}")),
         }
@@ -1222,6 +1257,7 @@ fn parse_status_args(arguments: &[String]) -> Result<CliCommand, String> {
 fn parse_runtime_command(arguments: &[String], plan_only: bool) -> Result<CliCommand, String> {
     let mut config_path = None;
     let mut interface_name = "ql0".to_owned();
+    let mut interface_addresses = Vec::new();
     let mut private_key = None;
     let mut peer_public_key = None;
     let mut peer_endpoint = None;
@@ -1237,45 +1273,86 @@ fn parse_runtime_command(arguments: &[String], plan_only: bool) -> Result<CliCom
     let mut index = 0_usize;
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--config" => config_path = Some(PathBuf::from(next_value(arguments, &mut index, "--config")?)),
-            "--interface" => interface_name = next_value(arguments, &mut index, "--interface")?.to_owned(),
-            "--private-key" => private_key = Some(decode_key32(next_value(arguments, &mut index, "--private-key")?)?),
+            "--config" => {
+                config_path = Some(PathBuf::from(next_value(
+                    arguments, &mut index, "--config",
+                )?))
+            }
+            "--interface" => {
+                interface_name = next_value(arguments, &mut index, "--interface")?.to_owned()
+            }
+            "--interface-address" => interface_addresses.push(
+                next_value(arguments, &mut index, "--interface-address")?
+                    .parse()
+                    .map_err(|error| format!("invalid --interface-address CIDR: {error}"))?,
+            ),
+            "--private-key" => {
+                private_key = Some(decode_key32(next_value(
+                    arguments,
+                    &mut index,
+                    "--private-key",
+                )?)?)
+            }
             "--peer-public-key" => {
-                peer_public_key = Some(decode_key32(next_value(arguments, &mut index, "--peer-public-key")?)?)
+                peer_public_key = Some(decode_key32(next_value(
+                    arguments,
+                    &mut index,
+                    "--peer-public-key",
+                )?)?)
             }
             "--peer-endpoint" => {
-                peer_endpoint = Some(next_value(arguments, &mut index, "--peer-endpoint")?.parse().map_err(|error| {
-                    format!("invalid --peer-endpoint socket address: {error}")
-                })?)
+                peer_endpoint = Some(
+                    next_value(arguments, &mut index, "--peer-endpoint")?
+                        .parse()
+                        .map_err(|error| {
+                            format!("invalid --peer-endpoint socket address: {error}")
+                        })?,
+                )
             }
-            "--allowed-ip" => allowed_ips.push(next_value(arguments, &mut index, "--allowed-ip")?.parse().map_err(
-                |error| format!("invalid --allowed-ip CIDR: {error}"),
-            )?),
+            "--allowed-ip" => allowed_ips.push(
+                next_value(arguments, &mut index, "--allowed-ip")?
+                    .parse()
+                    .map_err(|error| format!("invalid --allowed-ip CIDR: {error}"))?,
+            ),
             "--listen-port" => {
-                listen_port = next_value(arguments, &mut index, "--listen-port")?.parse().map_err(|error| {
-                    format!("invalid --listen-port value: {error}")
-                })?
+                listen_port = next_value(arguments, &mut index, "--listen-port")?
+                    .parse()
+                    .map_err(|error| format!("invalid --listen-port value: {error}"))?
             }
             "--keepalive" => {
-                persistent_keepalive = Some(next_value(arguments, &mut index, "--keepalive")?.parse().map_err(
-                    |error| format!("invalid --keepalive value: {error}"),
-                )?)
+                persistent_keepalive = Some(
+                    next_value(arguments, &mut index, "--keepalive")?
+                        .parse()
+                        .map_err(|error| format!("invalid --keepalive value: {error}"))?,
+                )
             }
             "--no-keepalive" => persistent_keepalive = None,
             "--rp-secret-key" => {
-                rosenpass_secret = Some(PathBuf::from(next_value(arguments, &mut index, "--rp-secret-key")?))
+                rosenpass_secret = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--rp-secret-key",
+                )?))
             }
             "--rp-public-key" => {
-                rosenpass_public = Some(PathBuf::from(next_value(arguments, &mut index, "--rp-public-key")?))
+                rosenpass_public = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--rp-public-key",
+                )?))
             }
             "--rp-peer-public-key" => {
-                rosenpass_peer_public = Some(PathBuf::from(next_value(arguments, &mut index, "--rp-peer-public-key")?))
+                rosenpass_peer_public = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--rp-peer-public-key",
+                )?))
             }
             "--dry-run" => dry_run = true,
             "--shutdown-after" => {
-                let secs = next_value(arguments, &mut index, "--shutdown-after")?.parse::<u64>().map_err(
-                    |error| format!("invalid --shutdown-after value: {error}"),
-                )?;
+                let secs = next_value(arguments, &mut index, "--shutdown-after")?
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --shutdown-after value: {error}"))?;
                 shutdown_after = Some(Duration::from_secs(secs));
             }
             other => return Err(format!("unknown argument: {other}")),
@@ -1284,8 +1361,13 @@ fn parse_runtime_command(arguments: &[String], plan_only: bool) -> Result<CliCom
     }
 
     let private_key = private_key.ok_or_else(|| "missing required --private-key".to_owned())?;
-    let peer_public_key = peer_public_key.ok_or_else(|| "missing required --peer-public-key".to_owned())?;
-    let peer_endpoint = peer_endpoint.ok_or_else(|| "missing required --peer-endpoint".to_owned())?;
+    let peer_public_key =
+        peer_public_key.ok_or_else(|| "missing required --peer-public-key".to_owned())?;
+    let peer_endpoint =
+        peer_endpoint.ok_or_else(|| "missing required --peer-endpoint".to_owned())?;
+    if interface_addresses.is_empty() {
+        return Err("missing required --interface-address".to_owned());
+    }
     if allowed_ips.is_empty() {
         allowed_ips.push("0.0.0.0/0".parse().unwrap());
         allowed_ips.push("::/0".parse().unwrap());
@@ -1309,6 +1391,7 @@ fn parse_runtime_command(arguments: &[String], plan_only: bool) -> Result<CliCom
     let runtime = RuntimeArgs {
         config_path,
         interface_name,
+        interface_addresses,
         private_key,
         peer_public_key,
         peer_endpoint,
@@ -1341,12 +1424,12 @@ fn parse_identity_command(arguments: &[String]) -> Result<CliCommand, String> {
         "verify" => IdentityCommand::Verify(parse_identity_verify_args(&arguments[1..])?),
         "renew" => IdentityCommand::Renew(parse_identity_renew_args(&arguments[1..])?),
         "revoke" => IdentityCommand::Revoke(parse_identity_revoke_args(&arguments[1..])?),
-        "export-enrollment" => {
-            IdentityCommand::ExportEnrollment(parse_identity_export_enrollment_args(&arguments[1..])?)
-        }
-        "import-enrollment" => {
-            IdentityCommand::ImportEnrollment(parse_identity_import_enrollment_args(&arguments[1..])?)
-        }
+        "export-enrollment" => IdentityCommand::ExportEnrollment(
+            parse_identity_export_enrollment_args(&arguments[1..])?,
+        ),
+        "import-enrollment" => IdentityCommand::ImportEnrollment(
+            parse_identity_import_enrollment_args(&arguments[1..])?,
+        ),
         other => return Err(format!("unknown identity subcommand: {other}")),
     };
 
@@ -1361,12 +1444,16 @@ fn parse_identity_init_ca_args(arguments: &[String]) -> Result<IdentityInitCaArg
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
             "--name" => name = Some(next_value(arguments, &mut index, "--name")?.to_owned()),
             "--created-at" => {
-                created_at = Some(next_value(arguments, &mut index, "--created-at")?.parse().map_err(|error| {
-                    format!("invalid --created-at value: {error}")
-                })?)
+                created_at = Some(
+                    next_value(arguments, &mut index, "--created-at")?
+                        .parse()
+                        .map_err(|error| format!("invalid --created-at value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown identity init-ca argument: {other}")),
         }
@@ -1393,29 +1480,42 @@ fn parse_identity_issue_args(arguments: &[String]) -> Result<IdentityIssueArgs, 
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
-            "--device-name" => device_name = Some(next_value(arguments, &mut index, "--device-name")?.to_owned()),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
+            "--device-name" => {
+                device_name = Some(next_value(arguments, &mut index, "--device-name")?.to_owned())
+            }
             "--overlay-ip" => {
-                overlay_ip = Some(next_value(arguments, &mut index, "--overlay-ip")?.parse().map_err(|error| {
-                    format!("invalid --overlay-ip value: {error}")
-                })?)
+                overlay_ip = Some(
+                    next_value(arguments, &mut index, "--overlay-ip")?
+                        .parse()
+                        .map_err(|error| format!("invalid --overlay-ip value: {error}"))?,
+                )
             }
             "--group" => groups.push(next_value(arguments, &mut index, "--group")?.to_owned()),
             "--wg-public-key" => {
-                wg_public_key = Some(decode_key32(next_value(arguments, &mut index, "--wg-public-key")?)?)
+                wg_public_key = Some(decode_key32(next_value(
+                    arguments,
+                    &mut index,
+                    "--wg-public-key",
+                )?)?)
             }
             "--rp-fingerprint" => {
-                rosenpass_fingerprint = Some(next_value(arguments, &mut index, "--rp-fingerprint")?.to_owned())
+                rosenpass_fingerprint =
+                    Some(next_value(arguments, &mut index, "--rp-fingerprint")?.to_owned())
             }
             "--valid-for" => {
-                valid_for = next_value(arguments, &mut index, "--valid-for")?.parse().map_err(|error| {
-                    format!("invalid --valid-for value: {error}")
-                })?
+                valid_for = next_value(arguments, &mut index, "--valid-for")?
+                    .parse()
+                    .map_err(|error| format!("invalid --valid-for value: {error}"))?
             }
             "--valid-from" => {
-                valid_from = Some(next_value(arguments, &mut index, "--valid-from")?.parse().map_err(|error| {
-                    format!("invalid --valid-from value: {error}")
-                })?)
+                valid_from = Some(
+                    next_value(arguments, &mut index, "--valid-from")?
+                        .parse()
+                        .map_err(|error| format!("invalid --valid-from value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown identity issue argument: {other}")),
         }
@@ -1427,7 +1527,8 @@ fn parse_identity_issue_args(arguments: &[String]) -> Result<IdentityIssueArgs, 
         device_name: device_name.ok_or_else(|| "missing required --device-name".to_owned())?,
         overlay_ip: overlay_ip.ok_or_else(|| "missing required --overlay-ip".to_owned())?,
         groups,
-        wg_public_key: wg_public_key.ok_or_else(|| "missing required --wg-public-key".to_owned())?,
+        wg_public_key: wg_public_key
+            .ok_or_else(|| "missing required --wg-public-key".to_owned())?,
         rosenpass_fingerprint: rosenpass_fingerprint
             .ok_or_else(|| "missing required --rp-fingerprint".to_owned())?,
         valid_for,
@@ -1443,14 +1544,22 @@ fn parse_identity_verify_args(arguments: &[String]) -> Result<IdentityVerifyArgs
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
             "--certificate" => {
-                certificate_path = Some(PathBuf::from(next_value(arguments, &mut index, "--certificate")?))
+                certificate_path = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--certificate",
+                )?))
             }
             "--now" => {
-                now = Some(next_value(arguments, &mut index, "--now")?.parse().map_err(|error| {
-                    format!("invalid --now value: {error}")
-                })?)
+                now = Some(
+                    next_value(arguments, &mut index, "--now")?
+                        .parse()
+                        .map_err(|error| format!("invalid --now value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown identity verify argument: {other}")),
         }
@@ -1459,7 +1568,8 @@ fn parse_identity_verify_args(arguments: &[String]) -> Result<IdentityVerifyArgs
 
     Ok(IdentityVerifyArgs {
         root_dir,
-        certificate_path: certificate_path.ok_or_else(|| "missing required --certificate".to_owned())?,
+        certificate_path: certificate_path
+            .ok_or_else(|| "missing required --certificate".to_owned())?,
         now,
     })
 }
@@ -1473,19 +1583,27 @@ fn parse_identity_renew_args(arguments: &[String]) -> Result<IdentityRenewArgs, 
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
             "--certificate" => {
-                certificate_path = Some(PathBuf::from(next_value(arguments, &mut index, "--certificate")?))
+                certificate_path = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--certificate",
+                )?))
             }
             "--valid-for" => {
-                valid_for = next_value(arguments, &mut index, "--valid-for")?.parse().map_err(|error| {
-                    format!("invalid --valid-for value: {error}")
-                })?
+                valid_for = next_value(arguments, &mut index, "--valid-for")?
+                    .parse()
+                    .map_err(|error| format!("invalid --valid-for value: {error}"))?
             }
             "--valid-from" => {
-                valid_from = Some(next_value(arguments, &mut index, "--valid-from")?.parse().map_err(|error| {
-                    format!("invalid --valid-from value: {error}")
-                })?)
+                valid_from = Some(
+                    next_value(arguments, &mut index, "--valid-from")?
+                        .parse()
+                        .map_err(|error| format!("invalid --valid-from value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown identity renew argument: {other}")),
         }
@@ -1494,7 +1612,8 @@ fn parse_identity_renew_args(arguments: &[String]) -> Result<IdentityRenewArgs, 
 
     Ok(IdentityRenewArgs {
         root_dir,
-        certificate_path: certificate_path.ok_or_else(|| "missing required --certificate".to_owned())?,
+        certificate_path: certificate_path
+            .ok_or_else(|| "missing required --certificate".to_owned())?,
         valid_for,
         valid_from,
     })
@@ -1509,13 +1628,17 @@ fn parse_identity_revoke_args(arguments: &[String]) -> Result<IdentityRevokeArgs
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
             "--serial" => serial = Some(next_value(arguments, &mut index, "--serial")?.to_owned()),
             "--reason" => reason = Some(next_value(arguments, &mut index, "--reason")?.to_owned()),
             "--revoked-at" => {
-                revoked_at = Some(next_value(arguments, &mut index, "--revoked-at")?.parse().map_err(|error| {
-                    format!("invalid --revoked-at value: {error}")
-                })?)
+                revoked_at = Some(
+                    next_value(arguments, &mut index, "--revoked-at")?
+                        .parse()
+                        .map_err(|error| format!("invalid --revoked-at value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown identity revoke argument: {other}")),
         }
@@ -1540,23 +1663,36 @@ fn parse_identity_export_enrollment_args(
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
             "--certificate" => {
-                certificate_path = Some(PathBuf::from(next_value(arguments, &mut index, "--certificate")?))
+                certificate_path = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--certificate",
+                )?))
             }
             "--exported-at" => {
-                exported_at = Some(next_value(arguments, &mut index, "--exported-at")?.parse().map_err(
-                    |error| format!("invalid --exported-at value: {error}"),
-                )?)
+                exported_at = Some(
+                    next_value(arguments, &mut index, "--exported-at")?
+                        .parse()
+                        .map_err(|error| format!("invalid --exported-at value: {error}"))?,
+                )
             }
-            other => return Err(format!("unknown identity export-enrollment argument: {other}")),
+            other => {
+                return Err(format!(
+                    "unknown identity export-enrollment argument: {other}"
+                ))
+            }
         }
         index += 1;
     }
 
     Ok(IdentityExportEnrollmentArgs {
         root_dir,
-        certificate_path: certificate_path.ok_or_else(|| "missing required --certificate".to_owned())?,
+        certificate_path: certificate_path
+            .ok_or_else(|| "missing required --certificate".to_owned())?,
         exported_at,
     })
 }
@@ -1571,16 +1707,26 @@ fn parse_identity_import_enrollment_args(
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
             "--bundle" => {
-                bundle_path = Some(PathBuf::from(next_value(arguments, &mut index, "--bundle")?))
+                bundle_path = Some(PathBuf::from(next_value(
+                    arguments, &mut index, "--bundle",
+                )?))
             }
             "--now" => {
-                now = Some(next_value(arguments, &mut index, "--now")?.parse().map_err(|error| {
-                    format!("invalid --now value: {error}")
-                })?)
+                now = Some(
+                    next_value(arguments, &mut index, "--now")?
+                        .parse()
+                        .map_err(|error| format!("invalid --now value: {error}"))?,
+                )
             }
-            other => return Err(format!("unknown identity import-enrollment argument: {other}")),
+            other => {
+                return Err(format!(
+                    "unknown identity import-enrollment argument: {other}"
+                ))
+            }
         }
         index += 1;
     }
@@ -1600,8 +1746,12 @@ fn parse_pair_mailbox_create_args(arguments: &[String]) -> Result<CliCommand, St
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--signal-url" => signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned()),
-            "--pairing-id" => pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned()),
+            "--signal-url" => {
+                signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned())
+            }
+            "--pairing-id" => {
+                pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned())
+            }
             "--role" => {
                 role = PairingRole::parse(next_value(arguments, &mut index, "--role")?)
                     .map_err(|error| error.to_string())?
@@ -1630,25 +1780,39 @@ fn parse_pair_send_enrollment_args(arguments: &[String]) -> Result<CliCommand, S
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
-            "--signal-url" => signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned()),
-            "--pairing-id" => pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned()),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
+            "--signal-url" => {
+                signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned())
+            }
+            "--pairing-id" => {
+                pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned())
+            }
             "--role" => {
                 role = PairingRole::parse(next_value(arguments, &mut index, "--role")?)
                     .map_err(|error| error.to_string())?
             }
             "--mailbox" => {
-                mailbox_id = Some(next_value(arguments, &mut index, "--mailbox")?.parse().map_err(|error| {
-                    format!("invalid --mailbox UUID: {error}")
-                })?)
+                mailbox_id = Some(
+                    next_value(arguments, &mut index, "--mailbox")?
+                        .parse()
+                        .map_err(|error| format!("invalid --mailbox UUID: {error}"))?,
+                )
             }
             "--certificate" => {
-                certificate_path = Some(PathBuf::from(next_value(arguments, &mut index, "--certificate")?))
+                certificate_path = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--certificate",
+                )?))
             }
             "--exported-at" => {
-                exported_at = Some(next_value(arguments, &mut index, "--exported-at")?.parse().map_err(
-                    |error| format!("invalid --exported-at value: {error}"),
-                )?)
+                exported_at = Some(
+                    next_value(arguments, &mut index, "--exported-at")?
+                        .parse()
+                        .map_err(|error| format!("invalid --exported-at value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown pair-send-enrollment argument: {other}")),
         }
@@ -1661,7 +1825,8 @@ fn parse_pair_send_enrollment_args(arguments: &[String]) -> Result<CliCommand, S
         pairing_id: pairing_id.ok_or_else(|| "missing required --pairing-id".to_owned())?,
         role,
         mailbox_id: mailbox_id.ok_or_else(|| "missing required --mailbox".to_owned())?,
-        certificate_path: certificate_path.ok_or_else(|| "missing required --certificate".to_owned())?,
+        certificate_path: certificate_path
+            .ok_or_else(|| "missing required --certificate".to_owned())?,
         exported_at,
     }))
 }
@@ -1677,36 +1842,48 @@ fn parse_pair_receive_enrollment_args(arguments: &[String]) -> Result<CliCommand
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
-            "--signal-url" => signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned()),
-            "--pairing-id" => pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned()),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
+            "--signal-url" => {
+                signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned())
+            }
+            "--pairing-id" => {
+                pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned())
+            }
             "--role" => {
                 role = PairingRole::parse(next_value(arguments, &mut index, "--role")?)
                     .map_err(|error| error.to_string())?
             }
             "--mailbox" => {
-                mailbox_id = Some(next_value(arguments, &mut index, "--mailbox")?.parse().map_err(|error| {
-                    format!("invalid --mailbox UUID: {error}")
-                })?)
+                mailbox_id = Some(
+                    next_value(arguments, &mut index, "--mailbox")?
+                        .parse()
+                        .map_err(|error| format!("invalid --mailbox UUID: {error}"))?,
+                )
             }
             "--now" => {
-                now = Some(next_value(arguments, &mut index, "--now")?.parse().map_err(|error| {
-                    format!("invalid --now value: {error}")
-                })?)
+                now = Some(
+                    next_value(arguments, &mut index, "--now")?
+                        .parse()
+                        .map_err(|error| format!("invalid --now value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown pair-recv-enrollment argument: {other}")),
         }
         index += 1;
     }
 
-    Ok(CliCommand::PairReceiveEnrollment(PairReceiveEnrollmentArgs {
-        root_dir,
-        signal_url: signal_url.ok_or_else(|| "missing required --signal-url".to_owned())?,
-        pairing_id: pairing_id.ok_or_else(|| "missing required --pairing-id".to_owned())?,
-        role,
-        mailbox_id: mailbox_id.ok_or_else(|| "missing required --mailbox".to_owned())?,
-        now,
-    }))
+    Ok(CliCommand::PairReceiveEnrollment(
+        PairReceiveEnrollmentArgs {
+            root_dir,
+            signal_url: signal_url.ok_or_else(|| "missing required --signal-url".to_owned())?,
+            pairing_id: pairing_id.ok_or_else(|| "missing required --pairing-id".to_owned())?,
+            role,
+            mailbox_id: mailbox_id.ok_or_else(|| "missing required --mailbox".to_owned())?,
+            now,
+        },
+    ))
 }
 
 fn parse_pair_initiate_args(arguments: &[String]) -> Result<CliCommand, String> {
@@ -1720,17 +1897,29 @@ fn parse_pair_initiate_args(arguments: &[String]) -> Result<CliCommand, String> 
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
-            "--signal-url" => signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned()),
-            "--pairing-id" => pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned()),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
+            "--signal-url" => {
+                signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned())
+            }
+            "--pairing-id" => {
+                pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned())
+            }
             "--code" => code = Some(next_value(arguments, &mut index, "--code")?.to_owned()),
             "--certificate" => {
-                certificate_path = Some(PathBuf::from(next_value(arguments, &mut index, "--certificate")?))
+                certificate_path = Some(PathBuf::from(next_value(
+                    arguments,
+                    &mut index,
+                    "--certificate",
+                )?))
             }
             "--exported-at" => {
-                exported_at = Some(next_value(arguments, &mut index, "--exported-at")?.parse().map_err(
-                    |error| format!("invalid --exported-at value: {error}"),
-                )?)
+                exported_at = Some(
+                    next_value(arguments, &mut index, "--exported-at")?
+                        .parse()
+                        .map_err(|error| format!("invalid --exported-at value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown pair-initiate argument: {other}")),
         }
@@ -1742,7 +1931,8 @@ fn parse_pair_initiate_args(arguments: &[String]) -> Result<CliCommand, String> 
         signal_url: signal_url.ok_or_else(|| "missing required --signal-url".to_owned())?,
         pairing_id: pairing_id.ok_or_else(|| "missing required --pairing-id".to_owned())?,
         code: code.ok_or_else(|| "missing required --code".to_owned())?,
-        certificate_path: certificate_path.ok_or_else(|| "missing required --certificate".to_owned())?,
+        certificate_path: certificate_path
+            .ok_or_else(|| "missing required --certificate".to_owned())?,
         exported_at,
     }))
 }
@@ -1758,19 +1948,29 @@ fn parse_pair_accept_args(arguments: &[String]) -> Result<CliCommand, String> {
 
     while index < arguments.len() {
         match arguments[index].as_str() {
-            "--root" => root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?)),
-            "--signal-url" => signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned()),
-            "--pairing-id" => pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned()),
+            "--root" => {
+                root_dir = Some(PathBuf::from(next_value(arguments, &mut index, "--root")?))
+            }
+            "--signal-url" => {
+                signal_url = Some(next_value(arguments, &mut index, "--signal-url")?.to_owned())
+            }
+            "--pairing-id" => {
+                pairing_id = Some(next_value(arguments, &mut index, "--pairing-id")?.to_owned())
+            }
             "--code" => code = Some(next_value(arguments, &mut index, "--code")?.to_owned()),
             "--mailbox" => {
-                mailbox_id = Some(next_value(arguments, &mut index, "--mailbox")?.parse().map_err(|error| {
-                    format!("invalid --mailbox UUID: {error}")
-                })?)
+                mailbox_id = Some(
+                    next_value(arguments, &mut index, "--mailbox")?
+                        .parse()
+                        .map_err(|error| format!("invalid --mailbox UUID: {error}"))?,
+                )
             }
             "--now" => {
-                now = Some(next_value(arguments, &mut index, "--now")?.parse().map_err(|error| {
-                    format!("invalid --now value: {error}")
-                })?)
+                now = Some(
+                    next_value(arguments, &mut index, "--now")?
+                        .parse()
+                        .map_err(|error| format!("invalid --now value: {error}"))?,
+                )
             }
             other => return Err(format!("unknown pair-accept argument: {other}")),
         }
@@ -1787,7 +1987,11 @@ fn parse_pair_accept_args(arguments: &[String]) -> Result<CliCommand, String> {
     }))
 }
 
-fn next_value<'a>(arguments: &'a [String], index: &mut usize, flag: &str) -> Result<&'a str, String> {
+fn next_value<'a>(
+    arguments: &'a [String],
+    index: &mut usize,
+    flag: &str,
+) -> Result<&'a str, String> {
     *index += 1;
     arguments
         .get(*index)
@@ -1816,27 +2020,26 @@ mod tests {
 
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine as _;
-    use ql_pair::PairingRole;
     use ql_core::{
         CertificateRequest, CryptoConfig, MeshSettings, NetworkConfig, QuantumLinkConfig,
         RelayPolicy, ServerConfig, SplitTunnelConfig, TunnelState,
     };
+    use ql_pair::PairingRole;
     use ql_signal::{SignalClient, SignalConfig, SignalMailboxAuth, SignalServer};
 
     use super::{
         accept_pairing_enrollment, decode_key32, export_enrollment_bundle,
-        import_enrollment_bundle,
-        initiate_pairing_enrollment_on_mailbox,
-        initialize_certificate_authority, issue_certificate, parse_cli,
+        import_enrollment_bundle, initialize_certificate_authority,
+        initiate_pairing_enrollment_on_mailbox, issue_certificate, parse_cli,
         receive_enrollment_via_mailbox, revoke_certificate, send_enrollment_via_mailbox,
-        storage_layout, verify_certificate, CliCommand, ClientDaemon, IdentityCommand,
-        RuntimeArgs,
+        storage_layout, verify_certificate, CliCommand, ClientDaemon, IdentityCommand, RuntimeArgs,
     };
 
     fn sample_runtime_args() -> RuntimeArgs {
         RuntimeArgs {
             config_path: None,
             interface_name: "ql0".to_owned(),
+            interface_addresses: vec!["10.0.0.2/32".parse().unwrap()],
             private_key: [1_u8; 32],
             peer_public_key: [2_u8; 32],
             peer_endpoint: "198.51.100.8:51820".parse().unwrap(),
@@ -1900,6 +2103,8 @@ mod tests {
             private_key,
             "--peer-public-key".to_owned(),
             peer_key,
+            "--interface-address".to_owned(),
+            "10.0.0.2/32".to_owned(),
             "--peer-endpoint".to_owned(),
             "198.51.100.8:51820".to_owned(),
         ])
@@ -1919,7 +2124,10 @@ mod tests {
         ])
         .unwrap();
 
-        assert!(matches!(command, CliCommand::Identity(IdentityCommand::InitCa(_))));
+        assert!(matches!(
+            command,
+            CliCommand::Identity(IdentityCommand::InitCa(_))
+        ));
     }
 
     #[test]
@@ -1964,6 +2172,7 @@ mod tests {
         let plan = daemon.plan();
 
         assert_eq!(plan.interface_name, "ql0");
+        assert_eq!(plan.interface_addresses, vec!["10.0.0.2/32".to_owned()]);
         assert_eq!(plan.peer_endpoint, "198.51.100.8:51820".parse().unwrap());
         assert_eq!(plan.allowed_ips, vec!["0.0.0.0/0".to_owned()]);
         assert!(plan.kill_switch);
@@ -2000,7 +2209,13 @@ mod tests {
         assert!(verified.valid_at_time);
         assert!(!verified.revoked);
 
-        let revoked = revoke_certificate(&layout, &bundle.certificate.serial, "lost device", 1_700_000_300).unwrap();
+        let revoked = revoke_certificate(
+            &layout,
+            &bundle.certificate.serial,
+            "lost device",
+            1_700_000_300,
+        )
+        .unwrap();
         assert!(revoked.revocations.is_revoked(&bundle.certificate.serial));
 
         let verified_after_revoke = verify_certificate(&layout, &path, 1_700_000_400).unwrap();
@@ -2170,8 +2385,8 @@ mod tests {
         let (initiate, accept) = tokio::join!(initiator, acceptor);
         let initiate = initiate.unwrap();
         let accept = accept.unwrap();
-		assert_eq!(initiate.mailbox_id, mailbox.mailbox_id);
-		assert_eq!(initiate.verification_words, accept.verification_words);
+        assert_eq!(initiate.mailbox_id, mailbox.mailbox_id);
+        assert_eq!(initiate.verification_words, accept.verification_words);
         assert!(accept.verification.valid_signature);
         assert!(accept.verification.valid_at_time);
         assert_eq!(accept.verification.device_name, "Office Laptop");

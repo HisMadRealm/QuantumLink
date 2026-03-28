@@ -103,9 +103,9 @@ impl HybridKemKeypair {
         let x25519_public = X25519PublicKey::from(&x25519_secret_key).to_bytes();
 
         let kem = mlkem768()?;
-        let (public_key, secret_key) = kem
-            .keypair()
-            .map_err(|error| QuantumLinkError::Crypto(format!("ML-KEM-768 keypair failed: {error}")))?;
+        let (public_key, secret_key) = kem.keypair().map_err(|error| {
+            QuantumLinkError::Crypto(format!("ML-KEM-768 keypair failed: {error}"))
+        })?;
 
         Ok(Self {
             x25519_secret,
@@ -152,10 +152,13 @@ pub fn hybrid_kem_encapsulate(
 
     let recipient_mlkem_pk = kem
         .public_key_from_bytes(recipient_pk.mlkem768.as_slice())
-        .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-KEM-768 public key length".to_owned()))?;
-    let (mlkem_ciphertext, mlkem_secret) = kem.encapsulate(&recipient_mlkem_pk).map_err(|error| {
-        QuantumLinkError::Crypto(format!("ML-KEM-768 encapsulation failed: {error}"))
-    })?;
+        .ok_or_else(|| {
+            QuantumLinkError::Crypto("invalid ML-KEM-768 public key length".to_owned())
+        })?;
+    let (mlkem_ciphertext, mlkem_secret) =
+        kem.encapsulate(&recipient_mlkem_pk).map_err(|error| {
+            QuantumLinkError::Crypto(format!("ML-KEM-768 encapsulation failed: {error}"))
+        })?;
 
     let shared_secret = derive_hybrid_secret(classical_secret.as_slice(), mlkem_secret.as_ref())?;
 
@@ -190,13 +193,19 @@ pub fn hybrid_kem_decapsulate(
     let kem = mlkem768()?;
     let mlkem_secret_key = kem
         .secret_key_from_bytes(keypair.mlkem768_secret.as_slice())
-        .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-KEM-768 secret key length".to_owned()))?;
+        .ok_or_else(|| {
+            QuantumLinkError::Crypto("invalid ML-KEM-768 secret key length".to_owned())
+        })?;
     let ciphertext = kem
         .ciphertext_from_bytes(ct.mlkem768_ct.as_slice())
-        .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-KEM-768 ciphertext length".to_owned()))?;
-    let mlkem_secret = kem.decapsulate(&mlkem_secret_key, &ciphertext).map_err(|error| {
-        QuantumLinkError::Crypto(format!("ML-KEM-768 decapsulation failed: {error}"))
-    })?;
+        .ok_or_else(|| {
+            QuantumLinkError::Crypto("invalid ML-KEM-768 ciphertext length".to_owned())
+        })?;
+    let mlkem_secret = kem
+        .decapsulate(&mlkem_secret_key, &ciphertext)
+        .map_err(|error| {
+            QuantumLinkError::Crypto(format!("ML-KEM-768 decapsulation failed: {error}"))
+        })?;
 
     derive_hybrid_secret(classical_secret.as_slice(), mlkem_secret.as_ref())
 }
@@ -262,15 +271,17 @@ impl HybridSigningKey {
     pub fn generate() -> QuantumLinkResult<Self> {
         let mut ed25519_secret = [0_u8; ED25519_SECRET_LEN];
         getrandom::getrandom(&mut ed25519_secret).map_err(|error| {
-            QuantumLinkError::Crypto(format!("OS randomness unavailable for Ed25519 key generation: {error}"))
+            QuantumLinkError::Crypto(format!(
+                "OS randomness unavailable for Ed25519 key generation: {error}"
+            ))
         })?;
         let ed25519_signing_key = SigningKey::from_bytes(&ed25519_secret);
         let ed25519_public = ed25519_signing_key.verifying_key().to_bytes();
 
         let sig = mldsa65()?;
-        let (public_key, secret_key) = sig
-            .keypair()
-            .map_err(|error| QuantumLinkError::Crypto(format!("ML-DSA-65 keypair failed: {error}")))?;
+        let (public_key, secret_key) = sig.keypair().map_err(|error| {
+            QuantumLinkError::Crypto(format!("ML-DSA-65 keypair failed: {error}"))
+        })?;
 
         Ok(Self {
             ed25519_secret,
@@ -314,10 +325,14 @@ impl HybridSigningKey {
         let sig = mldsa65()?;
         let _ = sig
             .secret_key_from_bytes(key_file.mldsa65_secret.as_slice())
-            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 secret key length".to_owned()))?;
+            .ok_or_else(|| {
+                QuantumLinkError::Crypto("invalid ML-DSA-65 secret key length".to_owned())
+            })?;
         let _ = sig
             .public_key_from_bytes(key_file.mldsa65_public.as_slice())
-            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 public key length".to_owned()))?;
+            .ok_or_else(|| {
+                QuantumLinkError::Crypto("invalid ML-DSA-65 public key length".to_owned())
+            })?;
 
         Ok(Self {
             ed25519_secret: key_file.ed25519_secret,
@@ -340,7 +355,9 @@ impl HybridSigningKey {
         let sig = mldsa65()?;
         let mldsa_secret = sig
             .secret_key_from_bytes(self.mldsa65_secret.as_slice())
-            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 secret key length".to_owned()))?;
+            .ok_or_else(|| {
+                QuantumLinkError::Crypto("invalid ML-DSA-65 secret key length".to_owned())
+            })?;
         let mldsa_signature = sig.sign(message, &mldsa_secret).map_err(|error| {
             QuantumLinkError::Crypto(format!("ML-DSA-65 signing failed: {error}"))
         })?;
@@ -368,18 +385,26 @@ impl HybridVerifyingKey {
         let ed25519_signature = Ed25519Signature::from_bytes(&sig.ed25519);
         ed25519_verifying_key
             .verify(message, &ed25519_signature)
-            .map_err(|error| QuantumLinkError::Auth(format!("Ed25519 verification failed: {error}")))?;
+            .map_err(|error| {
+                QuantumLinkError::Auth(format!("Ed25519 verification failed: {error}"))
+            })?;
 
         let mldsa = mldsa65()?;
         let public_key = mldsa
             .public_key_from_bytes(self.mldsa65.as_slice())
-            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 public key length".to_owned()))?;
+            .ok_or_else(|| {
+                QuantumLinkError::Crypto("invalid ML-DSA-65 public key length".to_owned())
+            })?;
         let signature = mldsa
             .signature_from_bytes(sig.mldsa65.as_slice())
-            .ok_or_else(|| QuantumLinkError::Crypto("invalid ML-DSA-65 signature length".to_owned()))?;
-        mldsa.verify(message, &signature, &public_key).map_err(|error| {
-            QuantumLinkError::Auth(format!("ML-DSA-65 verification failed: {error}"))
-        })
+            .ok_or_else(|| {
+                QuantumLinkError::Crypto("invalid ML-DSA-65 signature length".to_owned())
+            })?;
+        mldsa
+            .verify(message, &signature, &public_key)
+            .map_err(|error| {
+                QuantumLinkError::Auth(format!("ML-DSA-65 verification failed: {error}"))
+            })
     }
 
     /// Returns a 32-byte fingerprint for use in pairing flows.
@@ -533,7 +558,9 @@ mod tests {
         ciphertext.x25519_ephemeral_pk[0] ^= 0x01;
 
         match hybrid_kem_decapsulate(&keypair, &ciphertext) {
-            Ok(shared_secret_dec) => assert_ne!(shared_secret_enc.as_ref(), shared_secret_dec.as_ref()),
+            Ok(shared_secret_dec) => {
+                assert_ne!(shared_secret_enc.as_ref(), shared_secret_dec.as_ref())
+            }
             Err(_) => {}
         }
     }
@@ -546,7 +573,9 @@ mod tests {
         ciphertext.mlkem768_ct[0] ^= 0x01;
 
         match hybrid_kem_decapsulate(&keypair, &ciphertext) {
-            Ok(shared_secret_dec) => assert_ne!(shared_secret_enc.as_ref(), shared_secret_dec.as_ref()),
+            Ok(shared_secret_dec) => {
+                assert_ne!(shared_secret_enc.as_ref(), shared_secret_dec.as_ref())
+            }
             Err(_) => {}
         }
     }
@@ -567,7 +596,9 @@ mod tests {
         let verifying_key = signing_key.verifying_key();
         let signature = signing_key.sign(b"original message").unwrap();
 
-        assert!(verifying_key.verify(b"tampered message", &signature).is_err());
+        assert!(verifying_key
+            .verify(b"tampered message", &signature)
+            .is_err());
     }
 
     #[test]
@@ -600,7 +631,10 @@ mod tests {
         let message = b"restore secret key";
         let signature = restored.sign(message).unwrap();
 
-        restored.verifying_key().verify(message, &signature).unwrap();
+        restored
+            .verifying_key()
+            .verify(message, &signature)
+            .unwrap();
     }
 
     #[test]
@@ -619,10 +653,7 @@ mod tests {
     #[test]
     fn mlkem768_kat_vector() {
         let helper = build_kat_helper();
-        let output = Command::new(&helper)
-            .arg("ML-KEM-768")
-            .output()
-            .unwrap();
+        let output = Command::new(&helper).arg("ML-KEM-768").output().unwrap();
         assert!(output.status.success());
 
         let mut hasher = Sha256::new();
